@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "MCP server (Streamable HTTP) that gives voice assistants exact, cited deadline math for Social Security, California eviction and Medi-Cal/CalFresh letters.",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "author": "Jeffrey Pine Hein",
   "main": "src/server.js",
   "bin": {

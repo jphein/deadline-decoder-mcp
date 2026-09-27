@@ -57,4 +57,4 @@ California and federal rules only. Eviction deadlines assume personal service (s
 
 ## License
 
-MIT © 2026 Jeffrey Pine Hein. Built for [TechEMPOWER](https://techempower.org).
+AGPL-3.0-or-later © 2026 Jeffrey Pine Hein. See [LICENSE](LICENSE). Built for [TechEMPOWER](https://techempower.org).
