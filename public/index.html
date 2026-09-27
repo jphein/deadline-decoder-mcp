@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadline Decoder — voice assistant simulator</title>
+<meta name="description" content="Ask out loud when your deadline is. A simulated Alexa+ experience driving the Deadline Decoder MCP server.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="sim.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><img src="favicon.svg" alt="" width="28" height="28"> Deadline Decoder <span class="tag">voice</span></div>
+  <p class="disclaimer">Simulated Alexa+ experience for the Amazon Developer Hackathon — not an Amazon product. Every answer comes from the Deadline Decoder MCP server.</p>
+</header>
+
+<main>
+  <section class="device" aria-label="Voice assistant">
+    <div id="ring" class="ring" data-state="idle" aria-hidden="true"><div class="ring-inner"></div></div>
+    <p id="status" class="status" role="status">Tap the ring or type below</p>
+    <button id="mic" class="mic" type="button" aria-pressed="false">🎙️ <span>Hold to talk</span></button>
+    <form id="ask" class="ask" autocomplete="off">
+      <label for="q" class="visually-hidden">Say or type your question</label>
+      <input id="q" name="q" type="text" placeholder="e.g. My landlord gave me a three day notice yesterday" required>
+      <button type="submit">Ask</button>
+    </form>
+    <div class="chips" aria-label="Try saying">
+      <button type="button" class="chip">I got a letter from Social Security dated September 13th, they denied my disability again</button>
+      <button type="button" class="chip">My landlord taped a three day notice on my door yesterday</button>
+      <button type="button" class="chip">I was handed eviction papers on the 22nd of September</button>
+      <button type="button" class="chip">The county says my CalFresh is stopping, the notice is dated September 1st</button>
+    </div>
+    <label class="voice-toggle"><input id="speak" type="checkbox" checked> Speak answers aloud</label>
+  </section>
+
+  <section class="talk" aria-label="Conversation">
+    <ol id="transcript" class="transcript" aria-live="polite"></ol>
+    <article id="card" class="card" hidden aria-live="polite">
+      <p class="card-kicker" id="c-title"></p>
+      <p class="card-days"><span id="c-days"></span></p>
+      <p class="card-date" id="c-date"></p>
+      <p class="card-what" id="c-what"></p>
+      <details open><summary>How we counted</summary><ol id="c-math"></ol></details>
+      <details><summary>What to do</summary><ol id="c-steps"></ol></details>
+      <details><summary>Free help</summary><ul id="c-help"></ul></details>
+      <details><summary>Sources</summary><ul id="c-src" class="small"></ul></details>
+      <div class="card-actions">
+        <button id="remind" type="button">📅 Add a reminder</button>
+        <button id="again" type="button" class="secondary">🔁 Say it again</button>
+      </div>
+      <p class="small muted">General information, not legal advice.</p>
+    </article>
+    <details class="log"><summary>MCP tool calls <span id="log-count" class="muted">(0)</span></summary><ol id="log"></ol></details>
+  </section>
+</main>
+
+<footer class="foot small muted">
+  Built by <a href="https://techempower.org">TechEMPOWER</a> · MCP server spec 2025-11-25, Streamable HTTP at <code>/mcp</code> · <a href="https://github.com/jphein/deadline-decoder-mcp">source</a>
+</footer>
+<script type="module" src="sim.js"></script>
+</body>
+</html>
