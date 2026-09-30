@@ -837,3 +837,18 @@ test("small claims defendants, evictions, and HOA foreclosures", () => {
     assert.notEqual(detectLetter(x, t).letter_type, "ca-foreclosure-nod", x);
   assert.ok(computeDeadline("ca-foreclosure-nod", undefined, t).sources.some(s => s.includes("2924c(b)(1)")));
 });
+
+test("after #19: a printed 'no deficiency judgment', curly apostrophes, 'a UD', back rent after an eviction, 'they' and whose program", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  is("NOTICE OF TRUSTEE'S SALE. The trustee will sell at public auction to the highest bidder. Deed of trust dated 2019. No deficiency judgment.", "ca-foreclosure-sale");
+  assert.notEqual(detectLetter("the sheriff is selling my house to collect a judgment", t).letter_type, "ca-foreclosure-sale");
+  for (const x of ["I won’t pay, and they’re suing me in small claims", "I won’t pay my landlord for the damage and he’s suing me in small claims"]) is(x, "ca-small-claims");
+  is("I got a UD", "ca-ud");
+  is("my landlord is suing me in small claims for back rent after he evicted me", "ca-small-claims");
+  // "They" is Social Security only when what they cut is Social Security's.
+  is("I get SSI, they stopped my Medi-Cal", "ca-noa");
+  is("I'm on SSI and they are cutting it because I live with my landlord for free", "ssa-benefits-ending");
+  // A cue-less hearing that names another court, from a caller on SSI, isn't asked (H4).
+  assert.deepEqual(detectLetter("I'm on SSI and I have a small claims hearing", t).candidates, []);
+});
