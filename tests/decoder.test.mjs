@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { listLetterTypes, computeDeadline, detectLetter, makeReminder, todayIso, forTheEar, DecoderError } from "../src/decoder.js";
 
-test("lists the five letter types", () => {
-  assert.deepEqual(listLetterTypes().map(t => t.id), ["ssa-recon", "ssa-initial", "ca-3day", "ca-ud", "ca-noa"]);
+test("lists the letter types: the original five first, in their order, then the newer ones", () => {
+  assert.deepEqual(listLetterTypes().slice(0, 5).map(t => t.id), ["ssa-recon", "ssa-initial", "ca-3day", "ca-ud", "ca-noa"]);
+  assert.ok(listLetterTypes().length > 5);
 });
 
 test("SSA reconsideration: deadline, days left and speakable answer", () => {
