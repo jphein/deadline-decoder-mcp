@@ -627,7 +627,7 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
     "social security denied me, what do I bring to my hearing", "SSA turned me down, when is my hearing"]) {
     const q = detectLetter(x, t);
     assert.equal(q.letter_type, null, x); assert.deepEqual(q.candidates, ASK, x);
-    assert.equal(q.speech, "Have you already had your hearing with a judge?", x);
+    assert.equal(q.speech, "Have you already had your Social Security hearing with a judge?", x);
   }
   // The answers, both ways, including the ones that could be misread.
   for (const [a, id] of [["yes", "ssa-appeals-council"], ["yeah, I already had it", "ssa-appeals-council"], ["the judge said no", "ssa-appeals-council"],
@@ -637,7 +637,7 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
     assert.equal(detectLetter(a, t, ASK).letter_type, id, a);
   // "I don't know" settles nothing, so the question comes again.
   const again = detectLetter("I don't know", t, ASK);
-  assert.equal(again.letter_type, null); assert.deepEqual(again.candidates, ASK); assert.equal(again.speech, "Have you already had your hearing with a judge?");
+  assert.equal(again.letter_type, null); assert.deepEqual(again.candidates, ASK); assert.equal(again.speech, "Have you already had your Social Security hearing with a judge?");
   // dd9's sentences: asked (never the Appeals Council directly); and one said after the hearing, never recon directly.
   for (const x of ["after the hearing was scheduled social security denied me again", "I have to show up at my hearing because they denied me again, social security",
     "what happens at my hearing if social security denied me twice", "at my hearing next month can I say they denied me unfairly, social security",
@@ -655,6 +655,19 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
     ["I got a jury summons, I'm on disability, is there a hearing to be excused", "jury-summons"],
     ["the housing authority is terminating my section 8 and I have a hearing, I'm on SSI", "hud-voucher-termination"],
     ["I have a disability placard and want a hearing on my parking ticket", "ca-parking-ticket"]]) is(x, id);
+  // A housing *letter* isn't a reconsideration; a Social Security denial from a tenant still is.
+  for (const x of ["social security denied my disability again, and my landlord wants to evict me", "social security denied my disability a second time, I'm a tenant and scared"])
+    is(x, "ssa-recon");
+  // The ask needs an outcome or appeal word: other hearings from callers on SSI aren't asked.
+  for (const x of ["I have a custody hearing next week and I'm on SSI", "I have an immigration hearing and I get SSI", "I'm on SSI and I have a criminal hearing for a misdemeanor",
+    "I'm on social security and I have a small claims hearing", "I have a hearing about my disability accommodation at work with a judge"])
+    assert.deepEqual(detectLetter(x, t).candidates, [], x);
+  is("the disability judge denied me at my hearing, social security", "ssa-appeals-council");
+  not("the judge denied my disability accommodation at my job hearing", "ssa-appeals-council");
+  is("PG&E is shutting off my power, I am on SSI, can I get a hearing", "ca-utility-shutoff");
+  is("the IRS sent a final notice of intent to levy my social security, I want a hearing", "irs-levy");
+  assert.deepEqual(detectLetter("a debt collector is garnishing my social security, can I get a hearing", t).candidates, []);
+  assert.equal(detectLetter("I went but they haven't decided", t, ASK).letter_type, "ssa-appeals-council");
   // A bare "disability" with a hearing isn't Social Security's.
   assert.equal(detectLetter("I have a hearing about my disability accommodation at work", t).letter_type, null);
   assert.deepEqual(detectLetter("I have a hearing about my disability accommodation at work", t).candidates, []);

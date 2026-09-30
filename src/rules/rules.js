@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(evict\w*|landlord|unlawful detainer|tenant|(3|three)[- ]day notice)\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*)\b)|^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(unlawful detainer|eviction (summons|papers|notice|lawsuit|case)|(3|three)[- ]day notice|notice to (vacate|quit|pay rent))\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -1011,7 +1011,7 @@ export const RULES = [
 
 // The Social Security rules never claim another program's disability letter when Social Security isn't named:
 // EDD or state disability (SDI), workers' comp (WCAB), veterans' benefits, or long-term disability through work.
-const NOT_SSA = /^(?!.*\b(social security|SSA|SSI|SSDI)\b).*\b(EDD|employment development|state disability|SDI|workers'? ?comp\w*|WCAB|veterans?|long[- ]term disability|disability insurance (through|from) (work|my job|my employer)|private disability)\b/is;
+const NOT_SSA = /^(?!.*\b(social security|SSA|SSI|SSDI)\b).*\b(EDD|employment development|state disability|SDI|workers'? ?comp\w*|WCAB|veterans?|long[- ]term disability|disability insurance (through|from) (work|my job|my employer)|private disability|accommodation|workplace|at work|my job|my employer)\b/is;
 // The VA in capitals, or "the va" as ASR writes it; a bare "Va." (Virginia) or Spanish "va" isn't it.
 const NOT_SSA_VA = /^(?![\s\S]*\b([Ss]ocial [Ss]ecurity|SOCIAL SECURITY|SSA|SSI|SSDI)\b)[\s\S]*(\bVA\b|\b[Tt]he [Vv][Aa]\b(?!\.))/;
 // A sentence that leads with EDD is EDD's, even when it mentions Social Security later ("EDD denied my disability,
@@ -1035,15 +1035,17 @@ export const AMBIGUOUS = [
   // `unless`: not when the reconsideration rule's own exclusions fire (a judge's decision, a Notice of Decision,
   // another program), not on a Notice of Reconsideration or an initial denial, which say which letter they are.
   { preempt: true,
-    spoken: /^(?=.*\b(social security|SSA|SSI|SSDI)\b|.*\bdisability\b.*\b(judge|ALJ)\b|.*\b(judge|ALJ)\b.*\bdisability\b)(?=.*\bhearings?\b)/is,
+    // Social Security (or a disability judge that isn't about a job), a hearing, and an outcome or appeal word: a
+    // custody, immigration or criminal hearing from a caller on SSI isn't asked.
+    spoken: /^(?=.*\b(social security|SSA|SSI|SSDI)\b|(?!.*\b(accommodation|at work|my job|employer)\b)(.*\bdisability\b.*\b(judge|ALJ)\b|.*\b(judge|ALJ)\b.*\bdisability\b))(?=.*\bhearings?\b)(?=.*\b(denied|deny|turned (me )?down|said no|lost|against me|unfavorable|reconsider\w*|appeal\w*|judge|ALJ)\b)/is,
     unless: (t) => RULES.find(r => r.id === "ssa-recon").not.test(t) || /notice of reconsideration|notice of disapproved claim|\b(initial|first) (determination|denial|decision)\b|(ask|request)( for)? (a )?reconsideration/i.test(t),
     candidates: ["ssa-recon", "ssa-appeals-council"],
-    question: "Have you already had your hearing with a judge?",
+    question: "Have you already had your Social Security hearing with a judge?",
     // Tried in order, before each rule's own `answers`: a "not yet" first, so "no, I haven't had it" isn't read as "had it".
     // "Not yet" yields to an outcome or a hearing already had ("no, the judge ruled against me"; "I had it but I haven't
     // heard back"): those are past the hearing.
-    answers: [["ssa-recon", /^(?!.*\b(ruled|lost|against me|said no|turned (me )?down|(?<!(haven'?t|have not|hasn'?t|has not|didn'?t|not yet) )had (it|my hearing|the hearing)|heard back|the decision)\b)(\W*(no|nope|not yet)\b|.*\b(not yet|haven'?t|have not|hasn'?t|has not|scheduled|set for|coming( up)?|waiting|next (week|month))\b)/is],
-              ["ssa-appeals-council", /^\W*(yes|yeah|yep|i did)\b|\b(already|had it|had (my|the) hearing|went to (it|the hearing|my hearing)|the judge|lost|ruled|it was|heard back|the decision)\b/i]] },
+    answers: [["ssa-recon", /^(?!.*\b(ruled|lost|against me|said no|turned (me )?down|(?<!(haven'?t|have not|hasn'?t|has not|didn'?t|not yet) )had (it|my hearing|the hearing)|heard back|went|the decision)\b)(\W*(no|nope|not yet)\b|.*\b(not yet|haven'?t|have not|hasn'?t|has not|scheduled|set for|coming( up)?|waiting|next (week|month))\b)/is],
+              ["ssa-appeals-council", /^\W*(yes|yeah|yep|i did)\b|\b(already|had it|had (my|the) hearing|went to (it|the hearing|my hearing)|the judge|lost|ruled|it was|heard back|went|the decision)\b/i]] },
   { spoken: /\bsummons\b|\bcourt papers\b/i, candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
     question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
   { spoken: /notice to (vacate|move out|terminate)|terminat\w* (of )?(my |the )?tenancy|move[- ]out notice|telling me to move out/i, candidates: ["ca-30day-notice", "ca-60day-notice"],
