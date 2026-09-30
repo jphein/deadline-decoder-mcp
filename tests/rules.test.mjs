@@ -760,3 +760,18 @@ test("Social Security deciding (not just income), a Social Security judge, and c
     assert.notEqual(detectLetter(x, t).letter_type, "ssa-recon", x);
   assert.deepEqual(detectLetter("I have a hearing with the disability judge next month", t).candidates, ["ssa-recon", "ssa-appeals-council"]);
 });
+
+test("Social Security deciding, from the gate's set; a lost Social Security hearing; the DMV with no income phrase", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  for (const [x, id] of [["I get SSI and social security is stopping it because I got Medi-Cal", "ssa-benefits-ending"],
+    ["I'm on SSI and social security is cutting my check because of my Section 8 rent", "ssa-benefits-ending"],
+    ["I'm on SSDI and social security denied my disability again, the county said to appeal", "ssa-recon"],
+    ["I'm on SSI and social security says I was overpaid, the county told me to call", "ssa-overpayment"],
+    ["I receive SSI, social security sent a notice of overpayment, the IRS took my refund", "ssa-overpayment"]]) is(x, id);
+  // The county's own hearings from callers on SSI still keep the county's rule.
+  for (const x of ["I'm on SSI and the county denied my CalFresh, I want a hearing", "I'm on SSDI, Medi-Cal denied my claim, I want a fair hearing"]) is(x, "ca-noa");
+  is("I lost at my social security hearing", "ssa-appeals-council");
+  // With no income phrase, the DMV words in NOT_SSA are what keep a DMV letter out of Social Security's rules.
+  assert.notEqual(detectLetter("the DMV suspended my disability parking placard and I want a hearing", t).letter_type, "ssa-benefits-ending");
+});
