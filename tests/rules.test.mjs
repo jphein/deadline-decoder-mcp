@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, a shutoff notice, a debt collector or a repossessed car, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a traffic or parking ticket, or the DMV, a shutoff notice, a debt collector or a repossessed car, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -572,7 +572,7 @@ test("stack review: other programs' disability letters, decisions vs reconsidera
   // R3: a reconsideration that mentions the Appeals Council is still a reconsideration; a hearing decision isn't.
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We found you are not disabled. If you disagree, request a hearing before an administrative law judge. If you then disagree with the hearing, you can ask the Appeals Council.", "ssa-recon");
   is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", "ssa-appeals-council");
-  // The Oracle's verbatim reconsideration notice: "hearing decision" there is the next step, not this letter.
+  // A reconsideration notice, verbatim from review: "hearing decision" there is the next step, not this letter.
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. If you disagree, you may request a hearing before an administrative law judge. If you disagree with the hearing decision, you may ask the Appeals Council to review it.", "ssa-recon");
   // …even when the decision mentions the reconsideration that came before it (the reconsideration bonus would win).
   is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. After your reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
@@ -603,4 +603,100 @@ test("the date answer with the letter known: a bill's due date looks back only f
     assert.equal(detectLetter(x, t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01", x);
   }
   assert.equal(detectLetter("it's due October 5th", t, [], { letterType: "ssa-recon" }).suggested_notice_date, null);
+});
+
+test("routing: strong decision markers, EDD-led sentences, the judge's ruling, SSI's Notice of Decision, city names, a breath-test refusal, the VA", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  const not = (x, id) => assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  // E1: a judge's decision is a decision, even after the words "notice of reconsideration".
+  is("SOCIAL SECURITY ADMINISTRATION. After your notice of reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
+  // n1: a hearing that went against you is the Appeals Council's step.
+  is("the Social Security judge ruled against me at my hearing", "ssa-appeals-council");
+  // A Notice of Reconsideration says which letter it is, even when it mentions the hearing to come.
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We still find you are not disabled. If you disagree after the hearing, you may ask the Appeals Council.", "ssa-recon");
+  // With no decision in it, a denial that mentions a hearing is asked about: had the hearing yet? (Both answers give
+  // 60 days plus 5; only the next step differs.)
+  const ASK = ["ssa-recon", "ssa-appeals-council"];
+  for (const x of ["Social Security denied me again and the judge said I can have a hearing", "Social Security denied me again after the hearing was scheduled",
+    "social security denied me again, what do I say at my hearing", "social security denied me again, after the hearing gets scheduled what happens",
+    "social security denied me again and my hearing is scheduled", "social security denied me again and the hearing was postponed",
+    "I lost after the hearing, social security denied my disability", "after my hearing social security said no again", "they said no at my hearing for social security",
+    "what do I say at my hearing if social security denied me again", "social security denied me again and I need help at the hearing because they denied me twice",
+    "they turned me down at the hearing, social security disability", "social security denied my disability and my hearing is next month",
+    "social security denied me, what do I bring to my hearing", "SSA turned me down, when is my hearing"]) {
+    const q = detectLetter(x, t);
+    assert.equal(q.letter_type, null, x); assert.deepEqual(q.candidates, ASK, x);
+    assert.equal(q.speech, "Have you already had your Social Security hearing with a judge?", x);
+  }
+  // The answers, both ways, including the ones that could be misread.
+  for (const [a, id] of [["yes", "ssa-appeals-council"], ["yeah, I already had it", "ssa-appeals-council"], ["the judge said no", "ssa-appeals-council"],
+    ["I lost", "ssa-appeals-council"], ["no", "ssa-recon"], ["not yet", "ssa-recon"], ["no, I haven't had it", "ssa-recon"],
+    ["it's scheduled for next month", "ssa-recon"], ["I'm still waiting", "ssa-recon"],
+    ["yes, I had it last month", "ssa-appeals-council"], ["no, not yet", "ssa-recon"], ["it's next week", "ssa-recon"]])
+    assert.equal(detectLetter(a, t, ASK).letter_type, id, a);
+  // "I don't know" settles nothing, so the question comes again.
+  const again = detectLetter("I don't know", t, ASK);
+  assert.equal(again.letter_type, null); assert.deepEqual(again.candidates, ASK); assert.equal(again.speech, "Have you already had your Social Security hearing with a judge?");
+  // dd9's sentences: asked (never the Appeals Council directly); and one said after the hearing, never recon directly.
+  for (const x of ["after the hearing was scheduled social security denied me again", "I have to show up at my hearing because they denied me again, social security",
+    "what happens at my hearing if social security denied me twice", "at my hearing next month can I say they denied me unfairly, social security",
+    "social security denied me after my hearing"]) assert.deepEqual(detectLetter(x, t).candidates, ASK, x);
+  // The ask never takes another program's letter that mentions Social Security, SSI or a disability: the rules pick
+  // first, and the ask overrides only its own letters (or an initial denial), or nothing.
+  for (const [x, id] of [["my SSI was cut and I asked for a hearing", "ssa-benefits-ending"], ["they're stopping my SSI, can I get a hearing", "ssa-benefits-ending"],
+    ["social security says I was overpaid, I want a hearing", "ssa-overpayment"],
+    ["I got an unlawful detainer and the hearing is next week, I'm on SSI", "ca-ud"],
+    ["I got an eviction summons, I live on social security, when is my hearing", "ca-ud"],
+    ["my landlord gave me a 3 day notice, I'm on social security, do I get a hearing", "ca-3day"],
+    ["the county cut my CalFresh, I have a disability, I want a state hearing", "ca-noa"],
+    ["I got a DUI and the DMV is taking my license, I'm on SSI, I want a hearing", "ca-dmv-aps"],
+    ["public housing is evicting me, I'm on SSI, I want a grievance hearing", "hud-public-housing"],
+    ["I got a jury summons, I'm on disability, is there a hearing to be excused", "jury-summons"],
+    ["the housing authority is terminating my section 8 and I have a hearing, I'm on SSI", "hud-voucher-termination"],
+    ["I have a disability placard and want a hearing on my parking ticket", "ca-parking-ticket"]]) is(x, id);
+  // A housing *letter* isn't a reconsideration; a Social Security denial from a tenant still is.
+  for (const x of ["social security denied my disability again, and my landlord wants to evict me", "social security denied my disability a second time, I'm a tenant and scared"])
+    is(x, "ssa-recon");
+  // The ask needs an outcome or appeal word: other hearings from callers on SSI aren't asked.
+  for (const x of ["I have a custody hearing next week and I'm on SSI", "I have an immigration hearing and I get SSI", "I'm on SSI and I have a criminal hearing for a misdemeanor",
+    "I'm on social security and I have a small claims hearing", "I have a hearing about my disability accommodation at work with a judge"])
+    assert.deepEqual(detectLetter(x, t).candidates, [], x);
+  is("the disability judge denied me at my hearing, social security", "ssa-appeals-council");
+  not("the judge denied my disability accommodation at my job hearing", "ssa-appeals-council");
+  is("PG&E is shutting off my power, I am on SSI, can I get a hearing", "ca-utility-shutoff");
+  is("the IRS sent a final notice of intent to levy my social security, I want a hearing", "irs-levy");
+  assert.deepEqual(detectLetter("a debt collector is garnishing my social security, can I get a hearing", t).candidates, []);
+  assert.equal(detectLetter("I went but they haven't decided", t, ASK).letter_type, "ssa-appeals-council");
+  // A bare "disability" with a hearing isn't Social Security's.
+  assert.equal(detectLetter("I have a hearing about my disability accommodation at work", t).letter_type, null);
+  assert.deepEqual(detectLetter("I have a hearing about my disability accommodation at work", t).candidates, []);
+  // Answers that could be misread: an outcome beats a leading "no"; a hearing already had isn't "not yet".
+  for (const [a, id] of [["no, the judge ruled against me", "ssa-appeals-council"], ["I had it but I haven't heard back yet", "ssa-appeals-council"],
+    ["I haven't gotten the decision yet", "ssa-appeals-council"], ["I haven't had my hearing yet", "ssa-recon"], ["I asked for one but haven't had it", "ssa-recon"]])
+    assert.equal(detectLetter(a, t, ASK).letter_type, id, a);
+  // A Notice of Reconsideration that mentions losing at a hearing still says which letter it is (the title guard).
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We still find you are not disabled. Many people who lost at the hearing ask the Appeals Council; first you may request a hearing before an administrative law judge.", "ssa-recon");
+  // A printed initial denial isn't asked about a hearing: it says what it is. (Which SSA rule its scoring picks is
+  // outside this change.)
+  assert.deepEqual(detectLetter("SOCIAL SECURITY ADMINISTRATION. Notice of Disapproved Claim. We found you are not disabled. If you disagree, you may request reconsideration; a hearing comes later.", t).candidates, []);
+  // n3: an SSI initial determination is titled "Notice of Decision".
+  is("SOCIAL SECURITY ADMINISTRATION. Supplemental Security Income. Notice of Decision. You are not eligible for SSI. If you disagree, you may ask for reconsideration within 60 days.", "ssa-initial");
+  // S1: a sentence that leads with EDD is EDD's; one that leads with Social Security stays Social Security's.
+  is("EDD denied my disability, I'm also on social security", "ca-edd-sdi");
+  is("social security denied my disability and EDD cut off my SDI too", "ssa-initial");
+  // O2: a city named in the sentence isn't a city utility's name; "Water and Power" is.
+  is("the city of Oakland said power will be cut off", "ca-utility-shutoff");
+  is("the city of Oakland said power will be cut off for my building", "ca-utility-shutoff");
+  not("Glendale Water and Power is disconnecting my electric", "ca-utility-shutoff");
+  // n2: refusing the breath test is an admin per se suspension.
+  is("I refused the breathalyzer and the DMV is suspending my license", "ca-dmv-aps");
+  is("DEPARTMENT OF MOTOR VEHICLES. Order of suspension. You refused the breathalyzer. You may request a hearing.", "ca-dmv-aps");
+  // The VA, not "Va." (Virginia).
+  is("I moved from Va. and they denied my disability again", "ssa-recon");
+  not("my disability check from the va is being reduced", "ssa-benefits-ending");
+  not("the VA denied my disability claim", "ssa-initial");
+  // A due date read back that lands most of a year ago is asked again, not taken.
+  assert.equal(detectLetter("the due date was December 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, null);
+  assert.equal(detectLetter("the due date was August 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01");
 });
