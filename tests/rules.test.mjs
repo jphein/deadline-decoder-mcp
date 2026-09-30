@@ -214,7 +214,8 @@ test("Notice of Action: the hearing date, and how to keep benefits the same whil
   assert.equal(r.deadline, "2026-11-30");
   // the cutoff is the effective date on the notice, which can come sooner than 10 days, so no computed day is offered
   assert.deepEqual(r.also.map(a => [a.date, a.confidence]), [[null, "HEDGE"]]);
-  assert.match(r.speech, /Ask for a state hearing\. You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect\. That date is printed on the notice, usually at least 10 days after it, so ask right away\. Here's how I counted/);
+  assert.match(r.speech, /Ask for a state hearing\. You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect\. That date is printed on the notice, usually at least 10 days after it, so ask right away\. If you lose, you may have to pay back CalFresh benefits you got while waiting\. Here's how I counted/);
+  assert.ok(r.next_steps.some(s => /Medi-Cal renewal decision, you may have 120 days/.test(s)) && r.sources.some(s => s.includes("431.231(a)")));
   assert.doesNotMatch(r.speech, /is safe/);
   assert.equal(r.letter_title, "Medi-Cal, CalFresh or CalWORKs: a Notice of Action");
 });
@@ -305,4 +306,27 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   const q = detectLetter("I got a notice to vacate", t);
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
+});
+
+// ---- Social Security: the Appeals Council, and keeping benefits while you appeal ---------------------------------
+test("SSA Appeals Council: 60 days after the presumed receipt of the hearing decision (20 CFR 404.968)", () => {
+  assert.equal(due("ssa-appeals-council", "2026-09-13"), "2026-11-17");
+  const t = "2026-10-01";
+  assert.equal(detectLetter("the judge denied my disability at the hearing", t).letter_type, "ssa-appeals-council");
+  assert.equal(detectLetter("I want the Appeals Council to look at my Social Security case", t).letter_type, "ssa-appeals-council");
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", t).letter_type, "ssa-appeals-council");
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. Date: September 13, 2026. If you disagree, you may request a hearing before an administrative law judge.", t).letter_type, "ssa-recon");
+});
+
+test("SSA benefits ending: 10 days after the presumed receipt to keep them coming, and the 60-day appeal date", () => {
+  assert.equal(due("ssa-benefits-ending", "2026-09-13"), "2026-09-28");
+  const r = computeDeadline("ssa-benefits-ending", "2026-09-13", "2026-09-14");
+  assert.match(r.speech, /^Your deadline is Monday, September 28, 2026, 14 days from today\. Appeal, and ask to keep your benefits while you do\. To appeal at all, you have until Tuesday, November 17, 2026, 60 days after you get the notice\. After the earlier date, your payments usually stop while you wait, unless you have a good reason for being late\./);
+  assert.ok(r.next_steps.some(s => /appealing in time is usually enough/.test(s)) && r.next_steps.some(s => /the appeal alone isn't enough/.test(s)));
+  assert.ok(r.sources.some(s => s.includes("416.996(c)")));
+  assert.ok(r.sources.some(s => s.includes("416.1336(b)")) && r.sources.some(s => s.includes("404.1597a(f)(1)")));
+  const t = "2026-10-01";
+  assert.equal(detectLetter("they're stopping my SSI", t).letter_type, "ssa-benefits-ending");
+  assert.equal(detectLetter("Social Security says I'm no longer disabled and my benefits will end", t).letter_type, "ssa-benefits-ending");
+  assert.equal(detectLetter("Social Security says they overpaid me and they're cutting my check", t).letter_type, "ssa-overpayment");
 });
