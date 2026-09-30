@@ -548,6 +548,59 @@ export const RULES = [
     sources: ["Civil Code § 827(b) (30 days' notice for an increase of 10 percent or less over the past 12 months, 90 days for more; 5 more days if mailed, Code of Civil Procedure § 1013)",
               "Civil Code § 1947.12(a)(1) (for many rentals, no more than 5 percent plus the change in the cost of living, or 10 percent, whichever is lower, in 12 months)"],
   }),
+  // ---- consumer: debt collectors and car repossession ------------------------------------------------------------
+  spec({
+    id: "debt-validation",
+    family: "consumer",
+    title: "A debt collector's first letter (a validation notice)",
+    plain: "A collection agency's letter about a debt, with a date by which you can dispute it.",
+    confidence: "HEDGE",
+    anchor: null,
+    count: null,
+    hedge: "A debt collector's validation notice prints a date to dispute the debt by. Dispute in writing by that date if you can. If the notice reached you late, you may have until 30 days after you got it.",
+    must: /debt collect\w*|collection agency|collector|validation notice|\bcollections?\b/i,
+    not: /\b(su(e|ed|es|ing)|lawsuit|summons|court papers|complaint|served)\b/i,
+    detect: [/debt collect\w*|collection agency|collector/i, /validation|dispute|verif\w*/i, /\b(owe|balance|creditor|debt)\b/i],
+    spoken: /^(?!.*\b(su(e|ed|es|ing)|lawsuit|summons|court papers)\b).*(debt collect\w*|collection agency|\bcollections? (letter|notice|agency|company)\b|validation notice)/is,
+    answers: /\b(collect\w*|collector|debt)\b/i,
+    keyterms: ["debt collector", "collection agency", "validation notice"],
+    headline: "If you don't think you owe it, dispute it in writing by the date on the notice",
+    steps: [
+      "To dispute it, write to the collector by that date and say you dispute the debt and want proof. Keep a copy, and mail it in a way you can prove.",
+      "Once you dispute in writing in time, the collector has to stop collecting until it mails you proof of the debt.",
+      "If you're sued over the debt, you get court papers with their own deadline: use this tool again.",
+    ],
+    help: [LAWHELP, TWO11],
+    sources: ["15 U.S.C. § 1692g(a)(3)–(4) and (b) (dispute within 30 days after receiving the notice; after a written dispute, collection stops until the collector mails verification)",
+              "12 CFR 1006.34(b)(5) and (c) (the validation period ends 30 days after the consumer receives, or is assumed to receive, the notice, at least 5 days after it's sent, not counting weekends and federal holidays; the notice states that end date)"],
+  }),
+  spec({
+    id: "ca-repo-notice",
+    family: "consumer",
+    title: "California: a notice that your repossessed car will be sold (notice of intent to sell)",
+    plain: "The lender's notice, after a car bought on a dealer contract was repossessed, saying it will sell the car and how to get it back.",
+    confidence: "HEDGE",
+    anchor: "mailed",
+    dateLabel: "Date the notice was given to you or mailed",
+    dateQuestion: "What day was the notice mailed or handed to you? You can say something like September 13th.",
+    count: { days: 15, unit: "calendar", roll: "none" },
+    lead: "You can get the car back by paying off the contract, or sometimes by catching up on it, at least until {date}",
+    also: [{ label: "If you ask in writing before then, they have to add 10 more days, to {date} for a 15-day notice.", days: 25 }],
+    note: "This is for a car bought on a dealer's installment contract. If the notice was mailed from or to outside California, it's 20 days instead of 15, and 30 with the extension. The days count from when the notice was given or mailed, not from the repossession. I don't move the date for a weekend or holiday, so it's the safe date to act by.",
+    must: /repo(ssess\w*)?\b|intent to (sell|dispose)|redeem|reinstat\w*/i,
+    detect: [/repossess\w*|\brepo\b/i, /intent to (sell|dispose)|dispos\w*|\bsale\b/i, /redeem|reinstat\w*|vehicle|car\b|motor vehicle/i],
+    spoken: /\brepo(ssess\w*)?\b/i,
+    answers: /\b(repo\w*|car|vehicle|truck)\b/i,
+    keyterms: ["repossession", "notice of intent to sell", "reinstate"],
+    headline: "Call the lender, and ask in writing for the 10-day extension if you need more time",
+    steps: [
+      "Read the notice: it says what you'd have to pay to get the car back, and whether you can catch up (reinstate) instead of paying it all.",
+      "If you need more time, ask in writing for the 10-day extension before this date, using the form that came with the notice.",
+      "Even after this date, until the car is sold, ask the lender whether you can still get it back. And ask how to get your personal things out of it.",
+    ],
+    help: [LAWHELP, TWO11],
+    sources: ["Civil Code § 2983.2(a) (at least 15 days' written notice before a repossessed car is sold; the right to redeem, and any right to reinstate, until 15 days from giving or mailing the notice, 20 if mailed from or to outside California; 10 more days on written request)"],
+  }),
   // ---- taxes: the IRS -------------------------------------------------------------------------------------------
   spec({
     id: "irs-deficiency",
@@ -625,7 +678,7 @@ export const RULES = [
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
   "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
-  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
+  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-repo-notice", "debt-validation", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

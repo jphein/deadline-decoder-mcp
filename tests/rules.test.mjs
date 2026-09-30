@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, a debt collector or a repossessed car, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -305,4 +305,29 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   const q = detectLetter("I got a notice to vacate", t);
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
+});
+
+// ---- consumer: a debt collector's validation notice, and a car repossession notice -------------------------------
+test("debt validation: HEDGE with nothing to count; the notice prints the date to dispute by", () => {
+  const r = computeDeadline("debt-validation", undefined, "2026-09-16");
+  assert.equal(r.deadline, null);
+  assert.match(r.speech, /^A debt collector's validation notice prints a date to dispute the debt by\. Dispute in writing by that date if you can\. If the notice reached you late, you may have until 30 days after you got it\. If you don't think you owe it/);
+  assert.ok(r.sources.some(s => s.includes("1006.34(b)(5)")) && r.sources.some(s => s.includes("1692g")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("a debt collector sent me a letter and I don't owe this", t).letter_type, "debt-validation");
+  assert.equal(detectLetter("I got a letter from a collection agency", t).letter_type, "debt-validation");
+  assert.equal(detectLetter("This is a communication from a debt collector. Validation notice. You can dispute all or part of the debt by October 30, 2026.", t).letter_type, "debt-validation");
+  // A lawsuit over a debt is court papers, not a validation notice.
+  assert.equal(detectLetter("a debt collector sued me and I got a summons", t).letter_type, "ca-civil-summons");
+});
+
+test("repossession notice: redeem or reinstate for 15 days from mailing, 10 more on written request (Civil Code § 2983.2)", () => {
+  assert.equal(due("ca-repo-notice", "2026-09-15"), "2026-09-30");
+  const r = computeDeadline("ca-repo-notice", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^You can get the car back by paying off the contract, or sometimes by catching up on it, at least until Wednesday, September 30, 2026, 14 days from today\. Call the lender.*If you ask in writing before then, they have to add 10 more days, to Saturday, October 10, 2026 for a 15-day notice\./);
+  assert.ok(/20 days instead of 15, and 30 with the extension/.test(r.how_we_counted.join(" ")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("my car was repossessed and they sent a notice of intent to sell", t).letter_type, "ca-repo-notice");
+  assert.equal(detectLetter("they repo'd my truck", t).letter_type, "ca-repo-notice");
+  assert.equal(detectLetter("NOTICE OF INTENT TO DISPOSE OF REPOSSESSED MOTOR VEHICLE. You may redeem the vehicle or reinstate the contract.", t).letter_type, "ca-repo-notice");
 });
