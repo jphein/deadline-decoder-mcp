@@ -613,6 +613,10 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   is("SOCIAL SECURITY ADMINISTRATION. After your notice of reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
   // n1: a hearing that went against you is the Appeals Council's step.
   is("the Social Security judge ruled against me at my hearing", "ssa-appeals-council");
+  // …but a hearing offered, scheduled or mentioned as the next step is a reconsideration's.
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We still find you are not disabled. If you disagree after the hearing, you may ask the Appeals Council.", "ssa-recon");
+  is("Social Security denied me again and the judge said I can have a hearing", "ssa-recon");
+  is("Social Security denied me again after the hearing was scheduled", "ssa-recon");
   // n3: an SSI initial determination is titled "Notice of Decision".
   is("SOCIAL SECURITY ADMINISTRATION. Supplemental Security Income. Notice of Decision. You are not eligible for SSI. If you disagree, you may ask for reconsideration within 60 days.", "ssa-initial");
   // S1: a sentence that leads with EDD is EDD's; one that leads with Social Security stays Social Security's.
