@@ -12,6 +12,9 @@ const LAWHELP = { name: "LawHelpCA.org", how: "find free legal aid anywhere in C
 const SELFHELP = { name: "California Courts Self-Help Guide", how: "selfhelp.courts.ca.gov — forms and step-by-step help" };
 const TWO11 = { name: "211", how: "dial 2-1-1 from any phone, 24/7, English and Spanish" };
 const JURY = { name: "Your court's jury office", how: "the phone number and website are printed on your summons" };
+const EDD = { name: "EDD", how: "1-800-300-5616 in English, 1-800-326-8937 in Spanish" };
+const SSA = { name: "Social Security", how: "1-800-772-1213 (TTY 1-800-325-0778)" };
+const STATE_HEARINGS = { name: "CDSS State Hearings", how: "(800) 743-8525 (voice and TDD)" };
 const PARKING_AGENCY = { name: "The agency that gave the ticket", how: "its phone number and website are on the ticket or notice" };
 const PAYPLAN = "If you get public benefits or have a low income, ask the agency about a payment plan. People who qualify must be offered one before an unpaid ticket is sent to the DMV.";
 
@@ -67,18 +70,24 @@ export function countSteps(s, anchor, c) {
   return lines;
 }
 
+/** A second, earlier date some letters carry, such as the last day to keep benefits the same while you wait. `label`
+ *  says it, with {date} where the date goes. Counted in calendar days from the anchor and never rolled: early is safe. */
+function alsoDates(list = [], anchor) {
+  return list.map(a => ({ label: a.label, confidence: a.confidence ?? "SOLID", deadline: addDays(anchor, (a.mail ?? 0) + a.days) }));
+}
+
 /** A rule written as data. Needs: id, family, title, plain, anchor (a key of ANCHORS, or null when the notice
  *  prints its own date and there is nothing to count), count, headline, steps, help, sources, detect, spoken,
  *  answers, keyterms. Optional: confidence ("SOLID", or "HEDGE" plus a `hedge` sentence), dateLabel,
- *  dateQuestion, mailWho, not (printed cues that rule it out). */
+ *  dateQuestion, mailWho, not (printed cues that rule it out), also (see alsoDates). */
 export function spec(s) {
   return {
     confidence: "SOLID", ...s,
     compute(anchor) {
       const base = { headline: s.headline, steps: s.steps, help: s.help, sources: s.sources, hedge: s.hedge };
-      if (!s.count) return { ...base, deadline: null, math: [] };
+      if (!s.count) return { ...base, deadline: null, math: [], also: [] };
       const c = count(anchor, s.count);
-      return { ...base, deadline: c.date, math: countSteps(s, anchor, c) };
+      return { ...base, deadline: c.date, math: countSteps(s, anchor, c), also: alsoDates(s.also, anchor) };
     },
   };
 }
@@ -213,8 +222,8 @@ export const RULES = [
     spoken: /notice of action|\b(medi-?cal|calfresh|cal fresh|food stamps|ebt|cash aid|calworks)\b/i,
     answers: /\b(medi-?cal|calfresh|food stamps|calworks|cash aid|county|benefits)\b/i,
     keyterms: ["Medi-Cal", "CalFresh", "CalWORKs", "Notice of Action"],
-    title: "Medi-Cal or CalFresh: a Notice of Action",
-    plain: "A county notice that your Medi-Cal or CalFresh (food stamps) is being denied, cut, or stopped.",
+    title: "Medi-Cal, CalFresh or CalWORKs: a Notice of Action",
+    plain: "A county notice that your Medi-Cal, CalFresh (food stamps) or CalWORKs (cash aid) is being denied, cut, or stopped.",
     detect: [/notice of action/i, /(medi-cal|calfresh|cash aid|calworks)/i],
     dateLabel: "Date printed on the notice",
     compute(notice) {
@@ -229,7 +238,11 @@ export const RULES = [
                 "Write down the date and time you asked and who you talked to.",
                 "You can bring someone to help you, including free legal aid."],
         help: [LSNC, { name: "CDSS State Hearings", how: "(800) 743-8525 (voice and TDD)" }, LAWHELP, TWO11],
-        sources: ["Welfare and Institutions Code § 10951 (90 days; good cause up to 180)", "LSNC Guide to CalFresh Benefits — Requesting a fair hearing"],
+        sources: ["Welfare and Institutions Code § 10951 (90 days; good cause up to 180)", "LSNC Guide to CalFresh Benefits — Requesting a fair hearing",
+                  "42 CFR 431.211 and 431.230(a) (Medi-Cal: notice at least 10 days before the action; services continue if a hearing is asked for before it)",
+                  "7 CFR 273.13(a)(1) and 273.15(k)(1) (CalFresh: at least 10 days' notice; benefits continue on a timely hearing request)"],
+        also: [{ label: "To keep your benefits the same while you wait, ask before the change takes effect. That date is on the notice, and it's at least 10 days after it, so asking by {date} is safe.",
+                 confidence: "HEDGE", deadline: addDays(notice, 10) }],
       };
     },
   },
@@ -357,11 +370,87 @@ export const RULES = [
     help: [PARKING_AGENCY, LAWHELP, TWO11],
     sources: ["Vehicle Code § 40215(b) (21 calendar days after the review result is mailed; the penalty is deposited first, but the agency must let a person who is indigent, as defined in § 40220, ask for a hearing without paying, on proof of inability to pay)"],
   }),
+  // ---- Social Security: an overpayment --------------------------------------------------------------------------
+  spec({
+    id: "ssa-overpayment",
+    family: "ssa",
+    title: "Social Security: an overpayment notice (they say they paid you too much)",
+    plain: "A notice that Social Security or SSI says it paid you too much and wants the money back.",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 60, unit: "calendar", mail: 5, roll: "federal" },
+    mailWho: "Social Security",
+    must: /overpa(id|yment)/i,
+    detect: [/overpa(id|yment)/i, /social security|supplemental security income|\bSSI\b/i, /\b(waiver|reconsideration|repay|pay (us )?back)\b/i],
+    spoken: /^(?=.*\b(overpaid|overpayment|paid (me )?too much|pay (it |them |that |the money )?back)\b)(?=.*\b(social security|ssi|ssdi|ssa)\b)/is,
+    answers: /\b(overpaid|overpayment|too much|pay (it )?back)\b/i,
+    keyterms: ["overpayment", "waiver", "Supplemental Security Income"],
+    headline: "Appeal it if it's wrong, or ask for a waiver",
+    also: [{ label: "For Social Security benefits (not SSI), ask by {date}, 30 days after the date on the notice, and they won't start taking money back while they decide.", days: 30 }],
+    steps: [
+      "If you weren't overpaid, or the amount is wrong, ask for reconsideration (form SSA-561). If it wasn't your fault and paying it back would be too hard, ask for a waiver (form SSA-632). You can ask for both.",
+      "If you get SSI and the notice lowers or stops your payments, appeal within 10 days of getting it, and your payments stay the same while Social Security decides.",
+      "Keep proof of when you asked.",
+    ],
+    help: [LSNC, LAWHELP, TWO11, SSA],
+    sources: ["20 CFR 404.909 and 416.1409 (reconsideration within 60 days after you receive the notice)",
+              "20 CFR 404.901 and 416.1401 (notice presumed received 5 days after its date)",
+              "20 CFR 404.3(b) and 416.120(d) (a last day on a weekend or federal holiday moves to the next workday)",
+              "20 CFR 404.502a and 404.506(c) (Social Security benefits: recovery doesn't start on a waiver or reconsideration request within 30 days)",
+              "20 CFR 416.1336(b) (SSI: payments continue on an appeal within 10 days after receipt)"],
+  }),
+  // ---- unemployment -----------------------------------------------------------------------------------------------
+  spec({
+    id: "ca-edd-determination",
+    family: "unemployment",
+    title: "EDD: a Notice of Determination or Notice of Overpayment about unemployment benefits",
+    plain: "A letter from California's Employment Development Department denying or cutting unemployment benefits, or saying you were overpaid.",
+    anchor: "mailed",
+    dateLabel: "Mailing date printed on the notice",
+    dateQuestion: "What's the mailing date on the notice? You can say something like September 13th.",
+    count: { days: 30, unit: "calendar", roll: "none" },
+    must: /\bEDD\b|employment development department|unemployment insurance/i,
+    detect: [/\bEDD\b|employment development department/i, /notice of (determination|overpayment)|disqualif|ineligible|not eligible/i, /\b(appeal|unemployment insurance|DE 1000M)\b/i],
+    spoken: /^(?=.*\b(edd|unemployment)\b)(?=.*\b(denied|disqualif\w*|not eligible|ineligible|stopped|cut off|turned (me )?down|determination|overpaid|overpayment|pay (it )?back)\b)/is,
+    answers: /\b(edd|unemployment|jobless)\b/i,
+    keyterms: ["EDD", "Employment Development Department", "unemployment", "Notice of Determination", "Notice of Overpayment"],
+    headline: "Appeal to the Unemployment Insurance Appeals Board",
+    steps: [
+      "Appeal within 30 days of the mailing date on the notice. Use the appeal form that came with it (DE 1000M), or a letter saying you disagree and why, and mail it to the address at the top of the notice.",
+      "If you're late, appeal anyway and say why: the 30 days can be extended for good cause.",
+    ],
+    help: [EDD, LAWHELP, TWO11],
+    sources: ["Unemployment Insurance Code § 1328 (30 days from service of the notice; extended for good cause)",
+              "EDD, Unemployment Insurance Appeals (30 days from the mail date of the notice; form DE 1000M)"],
+  }),
+  // ---- benefits: a Medi-Cal health plan's appeal decision -----------------------------------------------------------
+  spec({
+    id: "ca-medi-cal-plan",
+    family: "benefits",
+    title: "Medi-Cal health plan: your appeal was denied (Notice of Appeal Resolution)",
+    plain: "A letter from your Medi-Cal managed care plan saying it kept its decision after your appeal.",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 120, unit: "calendar", roll: "none" },
+    must: /medi-?cal/i,
+    detect: [/notice of appeal resolution/i, /medi-?cal/i, /\b(health plan|managed care|state hearing)\b/i],
+    spoken: /^(?=.*\bmedi-?cal\b)(?=.*\b(health plan|managed care|my plan|insurance plan)\b)(?=.*\b(appeal|denied|upheld|said no)\b)/is,
+    answers: /\b(health plan|managed care|plan|appeal)\b/i,
+    keyterms: ["Notice of Appeal Resolution", "managed care plan", "State Hearing"],
+    headline: "Ask for a State Hearing",
+    steps: [
+      "Ask for a State Hearing within 120 days: call (800) 743-8525, or send the hearing form that came with the notice.",
+      "Write down the date you asked and who you talked to.",
+      "You can bring someone to help you, including free legal aid.",
+    ],
+    help: [STATE_HEARINGS, LSNC, LAWHELP, TWO11],
+    sources: ["Welfare and Institutions Code § 10951 (a State Hearing within 120 calendar days after the plan's notice that it upheld its decision; good cause up to 180 days)"],
+  }),
 ];
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
-export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-noa", "ssa-recon", "ssa-initial",
-  "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket"];
+export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-noa",
+  "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

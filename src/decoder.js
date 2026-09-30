@@ -65,11 +65,13 @@ export function computeDeadline(letterType, noticeDate, today = todayIso()) {
   };
   if (!r.deadline) {
     const lead = r.hedge;
-    return { ...common, deadline: null, deadline_spoken: null, days_left: null, passed: false, lead_spoken: lead,
+    return { ...common, deadline: null, deadline_spoken: null, days_left: null, passed: false, lead_spoken: lead, also: [], also_spoken: null,
       speech: [lead, `${r.headline}.`, `First step: ${r.steps[0]}`, help, "This is general information, not legal advice."].join(" ") };
   }
   const daysLeft = daysBetween(now, r.deadline);
   const late = daysLeft < 0, hedged = rule.confidence === "HEDGE";
+  const also = (r.also ?? []).map(a => ({ label: a.label, confidence: a.confidence, date: iso(a.deadline), date_spoken: fmt(a.deadline), passed: daysBetween(now, a.deadline) < 0 }));
+  const alsoSpoken = also.map(a => a.label.replace("{date}", a.date_spoken) + (a.passed ? " That date has passed." : "")).join(" ");
   const lead = hedged
     ? `For this kind of notice the deadline is usually ${fmt(r.deadline)}, ${daysPhrase(daysLeft)}. Check the notice itself: if it gives a different date, go by the notice.`
     : late
@@ -78,6 +80,7 @@ export function computeDeadline(letterType, noticeDate, today = todayIso()) {
   const speech = [
     lead,
     `${r.headline}.`,
+    ...(alsoSpoken ? [alsoSpoken] : []),
     `Here's how I counted. ${r.math.map(forTheEar).join(" ")}`,
     `First step: ${r.steps[0]}`,
     help,
@@ -90,6 +93,8 @@ export function computeDeadline(letterType, noticeDate, today = todayIso()) {
     days_left: daysLeft,
     passed: late,
     lead_spoken: lead,
+    also,
+    also_spoken: alsoSpoken || null,
     speech,
   };
 }
@@ -128,7 +133,7 @@ function detectSpoken(text) {
 
 // What each family of letters is about, for "which kind is it?" (in this order, when the family has rules).
 const FAMILY_ASK = [["ssa", "Social Security"], ["housing", "your rent or your home"], ["court", "a court case or jury duty"],
-  ["traffic", "a parking ticket"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
+  ["traffic", "a parking ticket"], ["unemployment", "unemployment benefits"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
 const families = new Set(RULES.map(r => r.family));
 const asked = FAMILY_ASK.filter(([f]) => families.has(f)).map(([, what]) => what);
 export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is it about ${asked.slice(0, -1).join(", ")}, or ${asked.at(-1)}?`;
