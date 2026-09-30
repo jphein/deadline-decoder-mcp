@@ -5,7 +5,7 @@
 // then a roll-forward rule for a last day on a weekend or holiday. A HEDGE rule says "usually" and sends people
 // to the date printed on their notice. When a statute's roll-forward rule isn't certain, a rule doesn't roll:
 // an answer that is early is safe, and one that is late isn't.
-import { d, addDays, addCourtDays, addDaysRolling, isFederalWorkday, isCourtDay, isDcBusinessDay, fmt, fmtDay, iso, CA_VERIFIED_YEARS } from "./dates.js";
+import { d, addDays, addCourtDays, addDaysRolling, isFederalWorkday, isCourtDay, isDcBusinessDay, whyNotWorkday, fmt, fmtDay, iso, CA_VERIFIED_YEARS } from "./dates.js";
 
 const LSNC = { name: "Legal Services of Northern California", how: "free civil legal aid — lsnc.net or call your local office" };
 const LAWHELP = { name: "LawHelpCA.org", how: "find free legal aid anywhere in California by county" };
@@ -66,14 +66,18 @@ export function countSteps(s, anchor, c) {
     const from = mail ? "then" : s.anchor === "served" ? "the day you were served" : "that date";
     lines.push(`${s.confidence === "HEDGE" ? "Usually the deadline is " : ""}${days} days from ${from}: ${fmt(c.raw)}.`);
     if (c.rolled.length) lines.push(rollLine(c.rolled, c.date, ROLL[roll].next) + (roll === "court" ? yearNote(c.date) : ""));
+    // A rule that doesn't roll says so when its day isn't a working day, instead of passing it off as final.
+    if (roll === "none" && !isCourtDay(c.raw)) lines.push(`That's ${/^(Saturday|Sunday)$/.test(whyNotWorkday(c.raw)) ? `a ${whyNotWorkday(c.raw)}` : whyNotWorkday(c.raw)}. Don't count on extra time: act before then.`);
   }
+  if (s.note) lines.push(s.note);
   return lines;
 }
 
-/** A second, earlier date some letters carry, such as the last day to keep benefits the same while you wait. `label`
- *  says it, with {date} where the date goes. Counted in calendar days from the anchor and never rolled: early is safe. */
+/** A second, earlier date some letters carry, such as the last day to keep Social Security from recovering while it
+ *  decides. `label` says it, with {date} where the date goes; counted in calendar days from the anchor and never
+ *  rolled (early is safe). An item without `days` is a sentence with no date of its own. */
 function alsoDates(list = [], anchor) {
-  return list.map(a => ({ label: a.label, confidence: a.confidence ?? "SOLID", deadline: addDays(anchor, (a.mail ?? 0) + a.days) }));
+  return list.map(a => ({ label: a.label, confidence: a.confidence ?? "SOLID", deadline: a.days === undefined ? null : addDays(anchor, (a.mail ?? 0) + a.days) }));
 }
 
 /** A rule written as data. Needs: id, family, title, plain, anchor (a key of ANCHORS, or null when the notice
@@ -236,13 +240,16 @@ export const RULES = [
         steps: ["Ask for a state hearing: call (800) 743-8525, go online, or fill in the back of the notice and mail it.",
                 "To keep your benefits while you wait, ask BEFORE the date the change takes effect (it is on the notice). This is called \"aid paid pending\".",
                 "Write down the date and time you asked and who you talked to.",
-                "You can bring someone to help you, including free legal aid."],
+                "You can bring someone to help you, including free legal aid.",
+                "If the notice is from your Medi-Cal health plan rather than the county, you usually appeal to the plan first, within 60 days of the date on it."],
         help: [LSNC, { name: "CDSS State Hearings", how: "(800) 743-8525 (voice and TDD)" }, LAWHELP, TWO11],
         sources: ["Welfare and Institutions Code § 10951 (90 days; good cause up to 180)", "LSNC Guide to CalFresh Benefits — Requesting a fair hearing",
                   "42 CFR 431.211 and 431.230(a) (Medi-Cal: notice at least 10 days before the action; services continue if a hearing is asked for before it)",
-                  "7 CFR 273.13(a)(1) and 273.15(k)(1) (CalFresh: at least 10 days' notice; benefits continue on a timely hearing request)"],
-        also: [{ label: "To keep your benefits the same while you wait, ask before the change takes effect. That date is on the notice, and it's at least 10 days after it, so asking by {date} is safe.",
-                 confidence: "HEDGE", deadline: addDays(notice, 10) }],
+                  "7 CFR 273.13(a)(1) and 273.15(k)(1) (CalFresh: at least 10 days' notice, with exceptions; benefits continue on a timely hearing request, but not past the end of the certification period)"],
+        // No date of its own: the cutoff is the effective date printed on the notice, usually at least 10 days after
+        // it but sometimes less, and the request has to come before it, so no computed day is safe to promise.
+        also: [{ label: "You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect. That date is printed on the notice, usually at least 10 days after it, so ask right away.",
+                 confidence: "HEDGE", deadline: null }],
       };
     },
   },
@@ -414,13 +421,15 @@ export const RULES = [
     spoken: /^(?=.*\b(edd|unemployment)\b)(?=.*\b(denied|disqualif\w*|not eligible|ineligible|stopped|cut off|turned (me )?down|determination|overpaid|overpayment|pay (it )?back)\b)/is,
     answers: /\b(edd|unemployment|jobless)\b/i,
     keyterms: ["EDD", "Employment Development Department", "unemployment", "Notice of Determination", "Notice of Overpayment"],
+    note: "EDD counts the 30 days from the mailing date on the notice.",
     headline: "Appeal to the Unemployment Insurance Appeals Board",
     steps: [
       "Appeal within 30 days of the mailing date on the notice. Use the appeal form that came with it (DE 1000M), or a letter saying you disagree and why, and mail it to the address at the top of the notice.",
       "If you're late, appeal anyway and say why: the 30 days can be extended for good cause.",
     ],
     help: [EDD, LAWHELP, TWO11],
-    sources: ["Unemployment Insurance Code § 1328 (30 days from service of the notice; extended for good cause)",
+    sources: ["Unemployment Insurance Code § 1328 (a determination: 30 days from service of the notice; extended for good cause)",
+              "Unemployment Insurance Code § 1377 (a Notice of Overpayment: 30 days from the date it was mailed or served; extended for good cause)",
               "EDD, Unemployment Insurance Appeals (30 days from the mail date of the notice; form DE 1000M)"],
   }),
   // ---- benefits: a Medi-Cal health plan's appeal decision -----------------------------------------------------------
@@ -432,9 +441,9 @@ export const RULES = [
     anchor: "notice",
     dateLabel: "Date printed on the notice",
     count: { days: 120, unit: "calendar", roll: "none" },
-    must: /medi-?cal/i,
+    must: /^(?=.*medi-?cal)(?=.*(notice of appeal resolution|\bappeal\b))/is,   // the plan's answer to an appeal
     detect: [/notice of appeal resolution/i, /medi-?cal/i, /\b(health plan|managed care|state hearing)\b/i],
-    spoken: /^(?=.*\bmedi-?cal\b)(?=.*\b(health plan|managed care|my plan|insurance plan)\b)(?=.*\b(appeal|denied|upheld|said no)\b)/is,
+    spoken: /^(?=.*\bmedi-?cal\b)(?=.*\b(health plan|managed care|my plan|insurance plan|medi-?cal plan)\b)(?=.*\bappeal\b)(?=.*\b(denied|upheld|said no|lost|turned (it )?down)\b)/is,
     answers: /\b(health plan|managed care|plan|appeal)\b/i,
     keyterms: ["Notice of Appeal Resolution", "managed care plan", "State Hearing"],
     headline: "Ask for a State Hearing",
@@ -444,13 +453,40 @@ export const RULES = [
       "You can bring someone to help you, including free legal aid.",
     ],
     help: [STATE_HEARINGS, LSNC, LAWHELP, TWO11],
-    sources: ["Welfare and Institutions Code § 10951 (a State Hearing within 120 calendar days after the plan's notice that it upheld its decision; good cause up to 180 days)"],
+    sources: ["Welfare and Institutions Code § 10951 (a State Hearing within 120 calendar days after the plan's notice that it upheld its decision; good cause up to 180 days)",
+              "42 CFR 438.408(f)(2) (120 calendar days from the date of the plan's notice of resolution)"],
+  }),
+  spec({
+    id: "ca-medi-cal-plan-denial",
+    family: "benefits",
+    title: "Medi-Cal health plan: a denial of care or a service (Notice of Adverse Benefit Determination)",
+    plain: "A letter from your Medi-Cal managed care plan denying, cutting or stopping a treatment, a medicine or a service.",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 60, unit: "calendar", roll: "none" },
+    must: /medi-?cal/i,
+    not: /notice of appeal resolution/i,
+    detect: [/adverse benefit determination|notice of action/i, /\b(health plan|managed care)\b/i, /\b(appeal|grievance)\b/i],
+    spoken: /^(?=.*\bmedi-?cal\b)(?=.*\b(health plan|managed care|my plan|insurance plan|medi-?cal plan)\b)(?=.*\b(denied|won't (cover|pay)|not cover|refused|cut|stopped|said no)\b)/is,
+    answers: /\b(plan|care|medicine|service|treatment|surgery|doctor)\b/i,
+    keyterms: ["Notice of Adverse Benefit Determination", "health plan"],
+    headline: "Appeal to your health plan",
+    steps: [
+      "Appeal to your Medi-Cal health plan within 60 days of the date on the notice: call the plan's member services number, or send the appeal form that came with the notice.",
+      "If the plan says no again, it sends a Notice of Appeal Resolution, and then you have 120 days to ask for a State Hearing.",
+      "If the plan misses its own deadlines for your appeal, you can ask for a State Hearing without waiting.",
+      "If waiting could seriously harm your health, ask the plan for an expedited appeal.",
+    ],
+    help: [LSNC, LAWHELP, TWO11],
+    sources: ["42 CFR 438.402(c)(2)(ii) (60 calendar days from the date on the notice to appeal to the plan)",
+              "42 CFR 438.402(c)(1)(i) and 438.408 (a State Hearing after the plan upholds its decision, or at once if the plan misses its notice or timing rules: 438.408(c)(3))",
+              "42 CFR 438.410 (expedited appeals)"],
   }),
 ];
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
-export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-noa",
-  "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket"];
+export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
+  "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

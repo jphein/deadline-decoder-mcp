@@ -188,20 +188,34 @@ test("SSA overpayment: 60 days after the presumed receipt, rolled like the other
 test("EDD: 30 calendar days from the mailing date, never rolled", () => {
   assert.equal(due("ca-edd-determination", "2026-09-15"), "2026-10-15");
   assert.equal(due("ca-edd-determination", "2026-10-01"), "2026-10-31");  // a Saturday, left as it is
-  assert.match(computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-20").speech, /Mailed Tuesday, September 15, 2026\. 30 days from that date: Thursday, October 15, 2026\./);
+  assert.match(computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-20").speech, /Mailed Tuesday, September 15, 2026\. 30 days from that date: Thursday, October 15, 2026\. EDD counts the 30 days from the mailing date on the notice\. First step/);
+  // a day that doesn't roll says so, instead of passing itself off as final
+  assert.match(computeDeadline("ca-edd-determination", "2026-10-01", "2026-10-02").speech, /Saturday, October 31, 2026\. That's a Saturday\. Don't count on extra time: act before then\./);
+  assert.match(computeDeadline("ca-edd-determination", "2026-10-02", "2026-10-03").speech, /Sunday, November 1, 2026\. That's a Sunday\. Don't count on extra time/);
+  assert.match(computeDeadline("ca-edd-determination", "2026-10-12", "2026-10-13").speech, /Wednesday, November 11, 2026\. That's Veterans Day\. Don't count on extra time/);
+  assert.doesNotMatch(computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-16").speech, /extra time/);   // a Thursday says nothing
+  const src = computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-20").sources;
+  assert.ok(src.some(s => s.includes("§ 1328")) && src.some(s => s.includes("§ 1377")));   // determinations, and overpayments
 });
 
-test("Medi-Cal health plan appeal decision: 120 days to ask for a State Hearing", () => {
+test("Medi-Cal health plan: 60 days to appeal a denial to the plan, then 120 days after its appeal decision", () => {
   assert.equal(due("ca-medi-cal-plan", "2026-09-01"), "2026-12-30");
+  assert.ok(computeDeadline("ca-medi-cal-plan", "2026-09-01", "2026-09-02").sources.some(s => s.includes("438.408(f)(2)")));
+  assert.equal(due("ca-medi-cal-plan-denial", "2026-09-01"), "2026-10-31");  // a Saturday, left as it is
+  const t = "2026-10-01";
+  assert.equal(detectLetter("my Medi-Cal health plan denied my surgery", t).letter_type, "ca-medi-cal-plan-denial");
+  assert.equal(detectLetter("my Medi-Cal plan won't cover my medicine", t).letter_type, "ca-medi-cal-plan-denial");
+  assert.equal(detectLetter("Your Medi-Cal managed care health plan: NOTICE OF ADVERSE BENEFIT DETERMINATION. You may appeal within 60 days.", t).letter_type, "ca-medi-cal-plan-denial");
+  assert.ok(computeDeadline("ca-noa", "2026-09-01", "2026-09-02").next_steps.some(s => /health plan rather than the county, you usually appeal to the plan first, within 60 days/.test(s)));
 });
 
-test("Notice of Action: the hearing date, and the date to keep benefits the same while you wait", () => {
+test("Notice of Action: the hearing date, and how to keep benefits the same while you wait (no date promised)", () => {
   const r = computeDeadline("ca-noa", "2026-09-01", "2026-09-02");
   assert.equal(r.deadline, "2026-11-30");
-  assert.deepEqual(r.also.map(a => [a.date, a.confidence, a.passed]), [["2026-09-11", "HEDGE", false]]);
-  assert.match(r.speech, /asking by Friday, September 11, 2026 is safe\. Here's how I counted/);
-  const late = computeDeadline("ca-noa", "2026-09-01", "2026-09-20");
-  assert.match(late.speech, /is safe\. That date has passed\./);
+  // the cutoff is the effective date on the notice, which can come sooner than 10 days, so no computed day is offered
+  assert.deepEqual(r.also.map(a => [a.date, a.confidence]), [[null, "HEDGE"]]);
+  assert.match(r.speech, /Ask for a state hearing\. You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect\. That date is printed on the notice, usually at least 10 days after it, so ask right away\. Here's how I counted/);
+  assert.doesNotMatch(r.speech, /is safe/);
   assert.equal(r.letter_title, "Medi-Cal, CalFresh or CalWORKs: a Notice of Action");
 });
 
