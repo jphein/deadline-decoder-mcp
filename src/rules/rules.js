@@ -39,7 +39,7 @@ export const ROLL = {
   dc: { ok: isDcBusinessDay, next: "business day" },
 };
 // The date each kind of rule counts from, as the first counting step says it.
-export const ANCHORS = { notice: "Notice dated", served: "Served", issued: "Issued", mailed: "Mailed" };
+export const ANCHORS = { notice: "Notice dated", served: "Served", issued: "Issued", mailed: "Mailed", received: "Received" };
 const WORDS = ["zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
 /** Count a rule's days from its anchor date. Returns the last day, the uncorrected last day, and what moved it. */
@@ -548,6 +548,58 @@ export const RULES = [
     sources: ["Civil Code § 827(b) (30 days' notice for an increase of 10 percent or less over the past 12 months, 90 days for more; 5 more days if mailed, Code of Civil Procedure § 1013)",
               "Civil Code § 1947.12(a)(1) (for many rentals, no more than 5 percent plus the change in the cost of living, or 10 percent, whichever is lower, in 12 months)"],
   }),
+  spec({
+    id: "ca-sheriff-vacate",
+    family: "housing",
+    title: "California: a sheriff's Notice to Vacate (after an eviction judgment)",
+    plain: "A notice from the sheriff, with a writ of possession, after the court ruled for the landlord in an eviction case.",
+    confidence: "HEDGE",
+    anchor: "served",
+    dateLabel: "Date the sheriff's notice was handed to you or posted",
+    dateQuestion: "What day was the sheriff's notice handed to you or posted on your door? You can say something like September 13th.",
+    count: { days: 5, unit: "calendar", roll: "court" },
+    lead: "You have until {date} to move out",
+    note: "If the notice prints an earlier date to be out by, call legal aid right away and plan for the earlier one. If it was posted and mailed, the 5 days can start before you find it, so don't wait.",
+    must: /\bsheriff\b|writ of possession|marshal|levying officer|lock ?out/i,
+    detect: [/\bsheriff\b|marshal|levying officer/i, /writ of possession|notice to vacate/i, /\b(five|5) days\b|\bvacate\b|\bremov\w*/i],
+    spoken: /\bsheriff\b.*\b(notice|vacate|lock|out|writ|door)\b|\bwrit of possession\b|\block ?out\b|\b(lock(ing)? me out)\b/i,
+    answers: /\b(sheriff|writ|lock\w*|marshal)\b/i,
+    keyterms: ["writ of possession", "sheriff", "Notice to Vacate"],
+    headline: "After that, the sheriff can lock you out. Call free legal aid today about asking the court for more time",
+    steps: [
+      "Call legal aid today about asking the court to stop or delay the lockout, or getting the landlord to hold off. Act right away: asking doesn't stop the lockout by itself, and the court may say no.",
+      "Mailing doesn't add days to the 5. Plan where you'll go, and take your important papers, medicine and pets.",
+      "Things you leave behind are stored for a short time, and you'll get a notice about how to get them back.",
+    ],
+    help: [LSNC, SELFHELP, LAWHELP, TWO11],
+    sources: ["Code of Civil Procedure § 715.020(a)–(c) (the levying officer serves the writ on an occupant, or posts it and serves the judgment debtor; occupants who don't leave within 5 days from service are removed; § 684.120's extra time for mailing doesn't apply)",
+              "Code of Civil Procedure §§ 12 and 12a (the day of service doesn't count; a last day on a weekend or court holiday moves to the next court day)"],
+  }),
+  spec({
+    id: "ca-subsidy-end",
+    family: "housing",
+    title: "California: your landlord is ending a rent subsidy contract (such as Section 8)",
+    plain: "A notice that the owner is ending or not renewing a Section 8 or other government rent-subsidy contract for your home.",
+    anchor: "received",
+    dateLabel: "Date you got the notice",
+    dateQuestion: "What day did you get the notice? You can say something like September 13th.",
+    count: { days: 90, unit: "calendar", roll: "none" },
+    lead: "Your landlord can't make you pay more than your share of the rent before {date}",
+    must: /section 8|housing choice voucher|\bvoucher\b|\bHAP\b|housing assistance payment|subsid\w*|rent limitation/i,
+    detect: [/section 8|housing choice voucher|\bvoucher\b|\bHAP\b|housing assistance payment|subsid\w*/i, /terminat\w*|not (renew|continu)\w*|nonrenewal|opt(ing)? out|end\w*/i, /\b(owner|landlord|contract|90 days|ninety)\b/i],
+    spoken: /^(?=.*\b(section 8|section eight|voucher|subsid\w*|housing assistance)\b)(?=.*\b(ending|end|stop\w*|leav\w*|not renew\w*|won't renew|opt\w* out|terminat\w*|no longer (take|accept)\w*)\b)/is,
+    answers: /\b(section 8|section eight|voucher|subsid\w*)\b/i,
+    keyterms: ["Section 8", "housing choice voucher", "subsidy contract"],
+    headline: "Call your housing authority, and keep paying only your share of the rent",
+    steps: [
+      "Call your housing authority right away. If you have a voucher, ask how to keep using it, where you live now or somewhere new.",
+      "The owner has to give at least 90 days' written notice before the contract ends. In some subsidized buildings (an \"assisted housing development\" under state law), the owner generally has to give 12 months' notice before the subsidy ends.",
+      "If the owner asks for more than your share before that date, ask legal aid.",
+    ],
+    help: [LSNC, LAWHELP, TWO11],
+    sources: ["Civil Code § 1954.535 (at least 90 days' written notice of the termination's effective date; the tenant pays no more than their portion of the rent for 90 days after getting the notice)",
+              "Government Code § 65863.10(b)(1) (an assisted housing development: at least 12 months' notice before a subsidy contract ends, unless § 65863.13 exempts the owner)"],
+  }),
   // ---- taxes: the IRS -------------------------------------------------------------------------------------------
   spec({
     id: "irs-deficiency",
@@ -625,7 +677,7 @@ export const RULES = [
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
   "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
-  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
+  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-sheriff-vacate", "ca-subsidy-end", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

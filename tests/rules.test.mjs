@@ -306,3 +306,28 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
 });
+
+// ---- housing: the sheriff's Notice to Vacate, and a subsidy contract ending ------------------------------------------
+test("sheriff's Notice to Vacate: 5 days from service, no mailing extension, a weekend last day rolls (CCP §§ 715.020, 12a)", () => {
+  assert.equal(due("ca-sheriff-vacate", "2026-09-15"), "2026-09-21");   // day 5 is Sunday the 20th: CCP § 12a moves it to Monday
+  const t = "2026-09-16";
+  const r = computeDeadline("ca-sheriff-vacate", "2026-09-15", t);
+  assert.match(r.speech, /^You have until Monday, September 21, 2026 to move out, 5 days from today\. After that, the sheriff can lock you out\. Call free legal aid today about asking the court for more time\./);
+  assert.ok(r.next_steps.some(s => /Mailing doesn't add days/.test(s)) && r.sources.some(s => s.includes("684.120")));
+  assert.equal(detectLetter("the sheriff posted a notice to vacate on my door", t).letter_type, "ca-sheriff-vacate");
+  assert.equal(detectLetter("they're going to lock me out", t).letter_type, "ca-sheriff-vacate");
+  assert.equal(detectLetter("SHERIFF'S DEPARTMENT. NOTICE TO VACATE. Writ of Possession of Real Property. You must vacate within five days.", t).letter_type, "ca-sheriff-vacate");
+  assert.deepEqual(detectLetter("my landlord gave me a notice to vacate", t).candidates, ["ca-30day-notice", "ca-60day-notice"]);
+});
+
+test("a subsidy contract ending: 90 days after you get the notice at your share of the rent (Civil Code § 1954.535)", () => {
+  assert.equal(due("ca-subsidy-end", "2026-09-15"), "2026-12-14");
+  const r = computeDeadline("ca-subsidy-end", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^Your landlord can't make you pay more than your share of the rent before Monday, December 14, 2026, 89 days from today\./);
+  assert.match(r.how_we_counted[0], /^Received /);
+  assert.ok(r.sources.some(s => s.includes("65863.10")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("my landlord is leaving Section 8", t).letter_type, "ca-subsidy-end");
+  assert.equal(detectLetter("the owner won't renew the voucher contract", t).letter_type, "ca-subsidy-end");
+  assert.equal(detectLetter("NOTICE OF NONRENEWAL. The owner will not renew the Housing Assistance Payments contract (Section 8). This notice gives you 90 days.", t).letter_type, "ca-subsidy-end");
+});
