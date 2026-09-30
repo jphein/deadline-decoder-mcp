@@ -174,9 +174,7 @@ export function detectLetter(text, today = todayIso(), among = [], { letterType 
   const asked = among.length ? AMBIGUOUS.find(g => g.answers && g.candidates.length === among.length && g.candidates.every(c => among.includes(c))) : null;
   const heard = asked?.answers.find(([, re]) => re.test(text))?.[0];
   let rule = heard ? findRule(heard) : among.map(findRule).find(r => r.answers?.test(text)) ?? null;
-  // A question asked before the rules are tried (the hearing ask), when nothing in the text settles it.
-  const pre = rule || among.length ? null : AMBIGUOUS.find(g => g.preempt && g.spoken.test(text) && !g.unless?.(text));
-  if (!rule && !pre) {
+  if (!rule) {
     // A printed initial denial names "reconsideration" as the next step, so the printed detector
     // can't hear "denied *again*"; the spoken detector can, and wins in that one case.
     const printed = detect(text), spoken = detectSpoken(text);
@@ -184,6 +182,11 @@ export function detectLetter(text, today = todayIso(), among = [], { letterType 
   }
   // An answer to a question with its own answers that settles nothing ("I don't know") is asked again. (The older
   // questions, whose candidates answer through their rules, keep falling through as before.)
+  // The hearing ask overrides the rules only when they picked one of its own letters, or nothing at all: another
+  // program's letter that mentions Social Security keeps its rule.
+  const pre = among.length ? null : AMBIGUOUS.find(g => g.preempt && (!rule || g.candidates.includes(rule.id))
+    && g.spoken.test(text) && !g.unless?.(text));
+  if (pre) rule = null;
   const group = pre ?? (rule ? null : asked ?? AMBIGUOUS.find(g => !g.preempt && g.spoken.test(text)));
   // A letter's own date is never after today: a date ahead of today (or said as an event) isn't offered as it.
   const known = rule ?? (letterType ? findRule(letterType) : null);

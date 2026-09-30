@@ -623,7 +623,8 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
     "social security denied me again and my hearing is scheduled", "social security denied me again and the hearing was postponed",
     "I lost after the hearing, social security denied my disability", "after my hearing social security said no again", "they said no at my hearing for social security",
     "what do I say at my hearing if social security denied me again", "social security denied me again and I need help at the hearing because they denied me twice",
-    "they turned me down at the hearing, social security disability"]) {
+    "they turned me down at the hearing, social security disability", "social security denied my disability and my hearing is next month",
+    "social security denied me, what do I bring to my hearing", "SSA turned me down, when is my hearing"]) {
     const q = detectLetter(x, t);
     assert.equal(q.letter_type, null, x); assert.deepEqual(q.candidates, ASK, x);
     assert.equal(q.speech, "Have you already had your hearing with a judge?", x);
@@ -641,6 +642,26 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   for (const x of ["after the hearing was scheduled social security denied me again", "I have to show up at my hearing because they denied me again, social security",
     "what happens at my hearing if social security denied me twice", "at my hearing next month can I say they denied me unfairly, social security",
     "social security denied me after my hearing"]) assert.deepEqual(detectLetter(x, t).candidates, ASK, x);
+  // The ask never takes another program's letter that mentions Social Security, SSI or a disability: the rules pick
+  // first, and the ask overrides only its own letters (or an initial denial), or nothing.
+  for (const [x, id] of [["my SSI was cut and I asked for a hearing", "ssa-benefits-ending"], ["they're stopping my SSI, can I get a hearing", "ssa-benefits-ending"],
+    ["social security says I was overpaid, I want a hearing", "ssa-overpayment"],
+    ["I got an unlawful detainer and the hearing is next week, I'm on SSI", "ca-ud"],
+    ["I got an eviction summons, I live on social security, when is my hearing", "ca-ud"],
+    ["my landlord gave me a 3 day notice, I'm on social security, do I get a hearing", "ca-3day"],
+    ["the county cut my CalFresh, I have a disability, I want a state hearing", "ca-noa"],
+    ["I got a DUI and the DMV is taking my license, I'm on SSI, I want a hearing", "ca-dmv-aps"],
+    ["public housing is evicting me, I'm on SSI, I want a grievance hearing", "hud-public-housing"],
+    ["I got a jury summons, I'm on disability, is there a hearing to be excused", "jury-summons"],
+    ["the housing authority is terminating my section 8 and I have a hearing, I'm on SSI", "hud-voucher-termination"],
+    ["I have a disability placard and want a hearing on my parking ticket", "ca-parking-ticket"]]) is(x, id);
+  // A bare "disability" with a hearing isn't Social Security's.
+  assert.equal(detectLetter("I have a hearing about my disability accommodation at work", t).letter_type, null);
+  assert.deepEqual(detectLetter("I have a hearing about my disability accommodation at work", t).candidates, []);
+  // Answers that could be misread: an outcome beats a leading "no"; a hearing already had isn't "not yet".
+  for (const [a, id] of [["no, the judge ruled against me", "ssa-appeals-council"], ["I had it but I haven't heard back yet", "ssa-appeals-council"],
+    ["I haven't gotten the decision yet", "ssa-appeals-council"], ["I haven't had my hearing yet", "ssa-recon"], ["I asked for one but haven't had it", "ssa-recon"]])
+    assert.equal(detectLetter(a, t, ASK).letter_type, id, a);
   // A Notice of Reconsideration that mentions losing at a hearing still says which letter it is (the title guard).
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We still find you are not disabled. Many people who lost at the hearing ask the Appeals Council; first you may request a hearing before an administrative law judge.", "ssa-recon");
   // A printed initial denial isn't asked about a hearing: it says what it is. (Which SSA rule its scoring picks is
