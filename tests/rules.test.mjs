@@ -633,3 +633,32 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   assert.equal(detectLetter("the due date was December 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, null);
   assert.equal(detectLetter("the due date was August 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01");
 });
+
+// ---- foreclosure (a deed of trust), and small claims ---------------------------------------------------------------
+test("foreclosure and small claims: HEDGE with nothing to count; the right people, the right letters", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  const not = (x, id) => assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  for (const id of ["ca-foreclosure-nod", "ca-foreclosure-sale", "ca-small-claims"]) {
+    const r = computeDeadline(id, undefined, t);
+    assert.equal(r.deadline, null, id); assert.equal(r.confidence, "HEDGE", id);
+  }
+  assert.match(computeDeadline("ca-foreclosure-nod", undefined, t).speech, /^A Notice of Default starts the foreclosure clock: the home can't be sold until at least 3 months and 20 days after it was recorded/);
+  assert.match(computeDeadline("ca-foreclosure-sale", undefined, t).speech, /You can usually still catch up on the loan \(reinstate\) until 5 business days before that date\./);
+  assert.ok(computeDeadline("ca-foreclosure-sale", undefined, t).sources.some(s => s.includes("2924c(e)")));
+  const sc = computeDeadline("ca-small-claims", undefined, t);
+  assert.ok(sc.next_steps.some(s => /at least 10 days before the hearing if you can\. Later, you can still ask, but you'll need a good reason\. Mail or hand a copy to the other side the same day\./.test(s)) && sc.next_steps.some(s => /at least 15 days before the hearing, or 20/.test(s)));
+  is("I got a notice of default on my house", "ca-foreclosure-nod");
+  is("NOTICE OF DEFAULT AND ELECTION TO SELL UNDER DEED OF TRUST. You may have the legal right to bring your account in good standing by paying all of your past due payments.", "ca-foreclosure-nod");
+  is("I got a notice of trustee's sale", "ca-foreclosure-sale");
+  is("they're auctioning off my house next month", "ca-foreclosure-sale");
+  is("they're suing me in small claims", "ca-small-claims");
+  is("PLAINTIFF'S CLAIM AND ORDER TO GO TO SMALL CLAIMS COURT (SC-100). The defendant must appear at the hearing.", "ca-small-claims");
+  for (const x of ["my car is going to be sold at auction", "the storage unit is auctioning my things", "the county tax collector says my house will be sold at a tax sale"])
+    not(x, "ca-foreclosure-sale");
+  // A printed vehicle or tax-sale notice scores like a trustee's sale without the exclusion.
+  for (const x of ["NOTICE OF SALE. Your vehicle will be sold at public auction to the highest bidder.", "NOTICE OF SALE. Tax-defaulted property will be sold at public auction to the highest bidder."])
+    not(x, "ca-foreclosure-sale");
+  for (const x of ["the county says my property taxes are in default", "my landlord is being foreclosed on and I rent the house"]) not(x, "ca-foreclosure-nod");
+  for (const x of ["I want to sue my landlord in small claims for my deposit", "I won my small claims case but they won't pay"]) not(x, "ca-small-claims");
+});
