@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -230,4 +230,45 @@ test("benefits: an SSA overpayment, an EDD notice and a Medi-Cal plan decision a
   assert.equal(detectLetter("Employment Development Department. Notice of Determination. You are disqualified. To appeal, use form DE 1000M.", t).letter_type, "ca-edd-determination");
   assert.equal(detectLetter("NOTICE OF APPEAL RESOLUTION. Your Medi-Cal managed care health plan upheld its decision. You may ask for a State Hearing.", t).letter_type, "ca-medi-cal-plan");
   assert.equal(detectLetter("I got a letter from Social Security dated September 13th, they denied my disability again", t).letter_type, "ssa-recon");
+});
+
+// ---- taxes: the IRS ------------------------------------------------------------------------------------------------
+test("IRS Notice of Deficiency: 90 days after mailing, past a weekend or D.C. holiday (26 U.S.C. § 6213(a))", () => {
+  assert.equal(due("irs-deficiency", "2026-09-15"), "2026-12-14");
+  assert.equal(due("irs-deficiency", "2026-08-13"), "2026-11-12");         // day 90 is Veterans Day
+  assert.equal(due("irs-deficiency", "2027-01-16"), "2027-04-19");         // day 90 is D.C. Emancipation Day, then the weekend
+  const r = computeDeadline("irs-deficiency", "2026-08-13", "2026-08-20");
+  assert.match(r.speech, /90 days from that date: Wednesday, November 11, 2026\. That's Veterans Day, so the deadline moves to the next business day: Thursday, November 12, 2026\./);
+  assert.ok(r.next_steps.some(s => /150 days/.test(s)) && r.sources.some(s => s.includes("6213(a)")));
+});
+
+test("IRS final notice of intent to levy: 30 days from the day after the notice date, rolled (§§ 6330, 7503)", () => {
+  assert.equal(due("irs-levy", "2026-09-15"), "2026-10-15");
+  assert.equal(due("irs-levy", "2026-10-12"), "2026-11-12");               // day 30 is Veterans Day
+  const r = computeDeadline("irs-levy", "2026-09-15", "2026-09-16");
+  assert.ok(r.next_steps.some(s => /equivalent hearing within a year/.test(s)));
+  assert.ok(r.sources.some(s => s.includes("301.6330-1(c)(2)")));
+  assert.match(r.speech, /Every day counts, but a last day on a weekend or a D\.C\. holiday moves to the next business day\. A state holiday where the IRS office is could add a day more, so this date is the safe side\./);
+});
+
+test("IRS CP2000: HEDGE, usually 30 days from the notice date, and the answer points to the response date", () => {
+  const r = computeDeadline("irs-cp2000", "2026-09-15", "2026-09-16");
+  assert.equal(r.confidence, "HEDGE");
+  assert.equal(r.deadline, "2026-10-15");
+  assert.match(r.speech, /^For this kind of notice the deadline is usually Thursday, October 15, 2026, 29 days from today\. Check the notice itself: if it gives a different date, go by the notice\. Reply to the IRS by the response date on the notice\./);
+  assert.match(r.speech, /Usually the deadline is 30 days from that date/);
+});
+
+test("IRS: the three letters are recognized, and a bare 'IRS letter' asks which", () => {
+  const t = "2026-10-01";
+  assert.equal(detectLetter("the IRS sent me a notice of deficiency", t).letter_type, "irs-deficiency");
+  assert.equal(detectLetter("I got an IRS 90-day letter", t).letter_type, "irs-deficiency");
+  assert.equal(detectLetter("the IRS says they're going to levy my bank account", t).letter_type, "irs-levy");
+  assert.equal(detectLetter("I got a CP2000 from the IRS", t).letter_type, "irs-cp2000");
+  assert.equal(detectLetter("the IRS says I didn't report some income", t).letter_type, "irs-cp2000");
+  assert.equal(detectLetter("FINAL NOTICE. Notice of Intent to Levy and Notice of Your Right to a Hearing. Internal Revenue Service. Use Form 12153.", t).letter_type, "irs-levy");
+  const q = detectLetter("I got a letter from the IRS", t);
+  assert.deepEqual(q.candidates, ["irs-cp2000", "irs-deficiency", "irs-levy"]);
+  assert.equal(detectLetter("it says final notice before a levy", t, q.candidates).letter_type, "irs-levy");
+  assert.equal(detectLetter("proposed changes to my return", t, q.candidates).letter_type, "irs-cp2000");
 });

@@ -15,6 +15,8 @@ const JURY = { name: "Your court's jury office", how: "the phone number and webs
 const EDD = { name: "EDD", how: "1-800-300-5616 in English, 1-800-326-8937 in Spanish" };
 const SSA = { name: "Social Security", how: "1-800-772-1213 (TTY 1-800-325-0778)" };
 const STATE_HEARINGS = { name: "CDSS State Hearings", how: "(800) 743-8525 (voice and TDD)" };
+const TAS = { name: "Taxpayer Advocate Service", how: "1-877-777-4778, free help when an IRS problem isn't getting fixed" };
+const LITC = { name: "A Low Income Taxpayer Clinic", how: "free or low-cost help with IRS disputes if you qualify; the Taxpayer Advocate Service lists clinics by state" };
 const PARKING_AGENCY = { name: "The agency that gave the ticket", how: "its phone number and website are on the ticket or notice" };
 const PAYPLAN = "If you get public benefits or have a low income, ask the agency about a payment plan. People who qualify must be offered one before an unpaid ticket is sent to the DMV.";
 
@@ -482,17 +484,92 @@ export const RULES = [
               "42 CFR 438.402(c)(1)(i) and 438.408 (a State Hearing after the plan upholds its decision, or at once if the plan misses its notice or timing rules: 438.408(c)(3))",
               "42 CFR 438.410 (expedited appeals)"],
   }),
+  // ---- taxes: the IRS -------------------------------------------------------------------------------------------
+  spec({
+    id: "irs-deficiency",
+    family: "tax",
+    title: "IRS: a Notice of Deficiency (the 90-day letter)",
+    plain: "An IRS letter saying you owe more tax, and that you can go to the U.S. Tax Court before you pay.",
+    anchor: "mailed",
+    dateLabel: "Date the notice was mailed (printed on it)",
+    count: { days: 90, unit: "calendar", roll: "dc" },
+    must: /notice of deficiency|statutory notice|\b(90|ninety)[- ]day letter|tax court/i,
+    detect: [/notice of deficiency|statutory notice/i, /\b(IRS|internal revenue)\b/i, /\b(90|ninety) days|\bpetition\b|tax court/i],
+    spoken: /^(?=.*\b(irs|tax|taxes)\b)(?=.*\b(notice of deficiency|deficiency|(90|ninety)[- ]day letter|tax court)\b)/is,
+    answers: /\b(deficiency|90|ninety|tax court)\b/i,
+    keyterms: ["Notice of Deficiency", "Tax Court", "IRS"],
+    headline: "File a petition with the U.S. Tax Court",
+    steps: [
+      "To challenge it without paying first, file a petition with the U.S. Tax Court by this date. The notice also prints the last day to file, and a petition filed by that date counts as on time.",
+      "If the notice was addressed to you outside the United States, you have 150 days instead.",
+      "Get help first if you can: a Low Income Taxpayer Clinic (free or low cost, if you qualify) or the Taxpayer Advocate Service (free).",
+    ],
+    help: [LITC, TAS, TWO11],
+    sources: ["26 U.S.C. § 6213(a) (90 days after the notice is mailed, 150 if it's addressed outside the United States; a Saturday, Sunday or D.C. legal holiday doesn't count as the last day; a petition by the date on the notice is timely)"],
+  }),
+  spec({
+    id: "irs-levy",
+    family: "tax",
+    title: "IRS: a final notice of intent to levy (and your right to a hearing)",
+    plain: "An IRS notice (such as CP90, LT11 or Letter 1058) saying it plans to take your wages, bank account or other property.",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 30, unit: "calendar", roll: "dc" },
+    must: /\blevy\b/i,
+    detect: [/intent to levy|notice of levy/i, /\b(IRS|internal revenue)\b/i, /collection due process|right to a hearing|form 12153/i],
+    spoken: /^(?=.*\b(irs|tax|taxes)\b)(?=.*\b(levy|levied|intent to levy)\b)/is,
+    answers: /\b(levy|final notice|garnish\w*|seize|bank account|wages)\b/i,
+    keyterms: ["intent to levy", "Collection Due Process", "Form 12153"],
+    note: "Every day counts, but a last day on a weekend or a D.C. holiday moves to the next business day. A state holiday where the IRS office is could add a day more, so this date is the safe side.",
+    headline: "Ask for a Collection Due Process hearing",
+    steps: [
+      "Ask for a Collection Due Process hearing by this date with Form 12153, sent to the address on the notice. While the hearing is pending, the IRS generally can't levy, and you can go to Tax Court if you disagree with the result.",
+      "If you miss it, you can still ask for an equivalent hearing within a year of the notice's date, but you can't take that result to Tax Court.",
+      "Get help: a Low Income Taxpayer Clinic (free or low cost, if you qualify) or the Taxpayer Advocate Service (free).",
+    ],
+    help: [LITC, TAS, TWO11],
+    sources: ["26 U.S.C. § 6330(a)(3)(B), (b) and (e)(1) (a hearing requested during the 30-day period; levy suspended while it's pending)",
+              "Treas. Reg. § 301.6330-1(c)(2) Q&A-C4 (the 30 days begin the day after the date of the notice; §§ 7502 and 7503 apply) and (i)(2) Q&A-I7 (an equivalent hearing within one year)",
+              "26 U.S.C. § 7503 (a last day on a Saturday, Sunday or legal holiday moves to the next day)"],
+  }),
+  spec({
+    id: "irs-cp2000",
+    family: "tax",
+    title: "IRS: a CP2000 notice (proposed changes to your tax return)",
+    plain: "An IRS notice saying the income on your return doesn't match what employers or banks reported, and proposing changes.",
+    confidence: "HEDGE",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 30, unit: "calendar", roll: "none" },
+    must: /\bcp ?2000\b|proposed changes/i,
+    detect: [/\bcp ?2000\b/i, /\b(IRS|internal revenue)\b/i, /proposed (changes|amount)|underreport/i],
+    spoken: /\bcp ?2000\b|^(?=.*\birs\b)(?=.*\b(proposed changes?|underreported|doesn't match|didn't report|missing income)\b)/is,
+    answers: /\b(cp ?2000|proposed|changes|underreport\w*|income)\b/i,
+    keyterms: ["CP2000", "proposed changes"],
+    headline: "Reply to the IRS by the response date on the notice",
+    steps: [
+      "Reply by the response date on the notice, saying whether you agree, with papers that show why if you don't. It's usually 30 days from the date of the notice, or 60 if you live outside the United States.",
+      "If you need more time, ask for it on the reply form or by calling the number on the notice.",
+      "If the IRS doesn't hear from you by that date, it sends a Notice of Deficiency, and then you have 90 days to go to Tax Court (150 if the notice is addressed to you outside the United States).",
+    ],
+    help: [LITC, TAS, TWO11],
+    sources: ["IRS Tax Topic 652, Notice of underreported income, CP2000 (respond within 30 days of the date of the notice, 60 if outside the U.S.; otherwise a statutory notice of deficiency)",
+              "IRS, Understanding your CP2000 notice (reply by the date listed; you can ask for more time)"],
+  }),
 ];
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
-  "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket"];
+  "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
+  "irs-deficiency", "irs-levy", "irs-cp2000"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.
 export const AMBIGUOUS = [
   { spoken: /\bsummons\b|\bcourt papers\b/i, candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
     question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
+  { spoken: /\b(irs|internal revenue)\b/i, candidates: ["irs-cp2000", "irs-deficiency", "irs-levy"],
+    question: "Is it a CP2000 about proposed changes to your return, a Notice of Deficiency, or a final notice before a levy?" },
 ];
 
 // Every word the recognizer should expect, from every rule (for speech-to-text key-term prompting).
