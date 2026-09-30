@@ -154,7 +154,7 @@ export function findSpokenDates(text, today = todayIso(), { pastDue = false } = 
 // SPOKEN_ORDER (most specific first). Used when the printed-letter detector finds nothing, or to hear "denied again".
 function detectSpoken(text) {
   // A rule's `not` (the letters it must never claim) applies to what people say, too.
-  for (const id of SPOKEN_ORDER) { const r = RULES.find(x => x.id === id); if (r?.spoken?.test(text) && !r.not?.test(text)) return r; }
+  for (const id of SPOKEN_ORDER) { const r = RULES.find(x => x.id === id); if ((r?.spoken?.test(text) || r?.spokenCase?.test(text)) && !r.not?.test(text)) return r; }
   return null;
 }
 

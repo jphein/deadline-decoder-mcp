@@ -832,9 +832,9 @@ test("small claims defendants, evictions, and HOA foreclosures", () => {
   for (const x of ["a collection agency is suing me in small claims", "my landlord is suing me in small claims because he says I won't pay for the damage",
     "they're suing me in small claims and I'm afraid of a judgment", "a debt collector sued me in small claims"]) is(x, "ca-small-claims");
   assert.notEqual(detectLetter("I won my small claims case and they won't pay", t).letter_type, "ca-small-claims");
-  // An HOA's assessment-lien foreclosure isn't answered by the deed-of-trust rule (not verified here).
+  // An HOA's foreclosure is answered by the Notice of Default rule, with the § 5715 redemption step (see below).
   for (const x of ["the HOA sent a notice of default on my condo", "my homeowners association is foreclosing on an assessment lien"])
-    assert.notEqual(detectLetter(x, t).letter_type, "ca-foreclosure-nod", x);
+    assert.equal(detectLetter(x, t).letter_type, "ca-foreclosure-nod", x);
   assert.ok(computeDeadline("ca-foreclosure-nod", undefined, t).sources.some(s => s.includes("2924c(b)(1)")));
 });
 
@@ -853,9 +853,29 @@ test("after #19: a printed 'no deficiency judgment', curly apostrophes, 'a UD', 
   assert.deepEqual(detectLetter("I'm on SSI and I have a small claims hearing", t).candidates, []);
 });
 
-test("an HOA's assessment-lien sale isn't answered by the trustee's-sale rule either", () => {
+test("an HOA's foreclosure: the deed-of-trust rules answer, with the § 5715 redemption step, pinned word for word", () => {
   const t = "2026-09-30";
-  for (const x of ["the HOA is auctioning my condo for unpaid assessments", "NOTICE OF TRUSTEE'S SALE under a notice of delinquent assessment. The homeowners association will sell at public auction to the highest bidder."])
-    assert.notEqual(detectLetter(x, t).letter_type, "ca-foreclosure-sale", x);
+  const STEP = /^If your homeowners association is foreclosing without going to court over assessments that came due from 2006 on, you may still be able to redeem the home for 90 days after the sale, and the notice of sale is supposed to mention that right\. Ask legal aid right away\.$/;
+  for (const [x, id] of [["my HOA sent a notice of default", "ca-foreclosure-nod"], ["the HOA is auctioning my condo for unpaid assessments", "ca-foreclosure-sale"],
+    ["NOTICE OF TRUSTEE'S SALE under a notice of delinquent assessment. The homeowners association will sell at public auction to the highest bidder.", "ca-foreclosure-sale"]]) {
+    const r = detectLetter(x, t); assert.equal(r.letter_type, id, x);
+    const c = computeDeadline(id, undefined, t);
+    assert.ok(c.next_steps.some(s => STEP.test(s)), id);
+    assert.ok(c.sources.some(s => s.includes("5715(a)–(b)")), id);
+  }
+  // The plain deed-of-trust notices still route as before.
+  assert.equal(detectLetter("I got a notice of default on my house", t).letter_type, "ca-foreclosure-nod");
   assert.equal(detectLetter("I got a notice of trustee's sale", t).letter_type, "ca-foreclosure-sale");
+});
+
+test("after #20: 'UD' in capitals, the ask hears ssa-recon's own cues, and 'they denied me again'", () => {
+  const t = "2026-09-30";
+  assert.equal(detectLetter("I got a UD", t).letter_type, "ca-ud");
+  for (const x of ["I got a UD.", "My landlord served me a UD."]) assert.equal(detectLetter(x, t).letter_type, "ca-ud", x);
+  assert.notEqual(detectLetter("¿Puede Ud. ayudarme con una carta?", t).letter_type, "ca-ud");
+  // A storage renter's unit isn't a home under a trustee's sale.
+  assert.notEqual(detectLetter("they're auctioning off my unit, I owe rent on it", t).letter_type, "ca-foreclosure-sale");
+  for (const x of ["social security says I'm not disabled and I have a hearing", "social security rejected my claim twice and I have a hearing"])
+    assert.deepEqual(detectLetter(x, t).candidates, ["ssa-recon", "ssa-appeals-council"], x);
+  assert.equal(detectLetter("I'm on SSI and they denied me again, the county told me to appeal", t).letter_type, "ssa-recon");
 });
