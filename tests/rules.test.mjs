@@ -664,6 +664,10 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
     assert.deepEqual(detectLetter(x, t).candidates, [], x);
   is("the disability judge denied me at my hearing, social security", "ssa-appeals-council");
   not("the judge denied my disability accommodation at my job hearing", "ssa-appeals-council");
+  // With no denial word, a disability judge's hearing to come is still asked about; only another court's hearing
+  // (small claims, custody, immigration, criminal…) keeps Social Security out.
+  assert.deepEqual(detectLetter("I have a hearing with the disability judge next month", t).candidates, ASK);
+  not("the DMV is suspending my license, I'm on disability, can I get a hearing", "ssa-benefits-ending");
   is("PG&E is shutting off my power, I am on SSI, can I get a hearing", "ca-utility-shutoff");
   is("the IRS sent a final notice of intent to levy my social security, I want a hearing", "irs-levy");
   assert.deepEqual(detectLetter("a debt collector is garnishing my social security, can I get a hearing", t).candidates, []);
@@ -699,4 +703,75 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   // A due date read back that lands most of a year ago is asked again, not taken.
   assert.equal(detectLetter("the due date was December 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, null);
   assert.equal(detectLetter("the due date was August 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01");
+});
+
+test("follow-ups: other courts' hearings, 'reconsidered', and 'filed an eviction'", () => {
+  const t = "2026-09-30";
+  // Another court's hearing that went against a caller on Social Security isn't the Appeals Council's.
+  for (const x of ["I'm on social security and I lost my custody hearing", "I'm on SSI and the judge denied bail at my criminal hearing",
+    "I'm on SSDI and my immigration judge denied my asylum at the hearing"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ssa-appeals-council", x);
+  // …unless it names a Social Security appeal.
+  assert.equal(detectLetter("my disability hearing went against me, and I also have a custody case, social security", t).letter_type === "ssa-appeals-council"
+    || detectLetter("my disability hearing went against me, and I also have a custody case, social security", t).candidates.includes("ssa-appeals-council"), true);
+  assert.equal(detectLetter("social security reconsidered and I still can't get disability", t).letter_type, "ssa-recon");
+  assert.equal(detectLetter("I get SSI and my landlord filed an eviction, the hearing is next week", t).letter_type, "ca-ud");
+  assert.equal(detectLetter("I lost my eviction case and the sheriff put a notice on my door", t).letter_type, "ca-sheriff-vacate");
+});
+
+test("Social Security said as income, the county's hearing, and 'I haven't went yet'", () => {
+  const t = "2026-09-30";
+  // The rules pick first: a county benefits hearing from a caller on SSI keeps its rule (not the hearing question).
+  for (const x of ["I'm on SSI and the county denied my CalFresh, I want a hearing", "I'm on SSDI, Medi-Cal denied my claim, I want a fair hearing"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-noa", x);
+  // …and when another program's rule picks the letter, the hearing question doesn't take it, even with a Social Security
+  // denial in the same sentence (the DMV's 10 days come first).
+  assert.equal(detectLetter("the DMV suspended my license after the DUI and social security denied me, I want a hearing", t).letter_type, "ca-dmv-aps");
+  // Social Security as income next to another agency's decision isn't a Social Security letter.
+  assert.equal(detectLetter("I'm on social security, the DMV denied my license after the DUI, I want a hearing", t).letter_type, "ca-dmv-aps");
+  assert.equal(detectLetter("social security is my income and the housing authority denied my section 8, I want a hearing", t).letter_type, "hud-voucher-termination");
+  for (const x of ["I'm on SSI and my parking ticket appeal was denied, can I get a hearing", "I'm on SSI and my landlord denied my repair request, can I get a hearing"]) {
+    const r = detectLetter(x, t);
+    assert.ok(!["ssa-recon", "ssa-appeals-council", "ssa-initial"].includes(r.letter_type) && r.candidates.length === 0, x);
+  }
+  // A Social Security denial said by someone on SSI is still Social Security's.
+  assert.equal(detectLetter("I'm on SSI and social security denied my disability again", t).letter_type, "ssa-recon");
+  assert.equal(detectLetter("I haven't went yet", t, ["ssa-recon", "ssa-appeals-council"]).letter_type, "ssa-recon");
+});
+
+test("Social Security deciding (not just income), a Social Security judge, and cue-less hearing letters", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  // S1: Social Security (or "they") is the one deciding; the agency word is only the reason.
+  for (const [x, id] of [["I get SSDI and social security says I was overpaid because of my EDD payments", "ssa-overpayment"],
+    ["I'm on SSI and they are cutting it because I live with my landlord for free", "ssa-benefits-ending"],
+    ["I get SSI and social security is reducing my check because Medi-Cal pays my nursing home", "ssa-benefits-ending"],
+    ["I receive SSI and the county says I have too many resources, and social security denied me again", "ssa-recon"],
+    ["I'm on SSI and social security denied my disability again, the county said to appeal", "ssa-recon"]]) is(x, id);
+  // …while Social Security as income next to another agency's decision still keeps that agency's rule.
+  is("I'm on social security, the DMV denied my license after the DUI, I want a hearing", "ca-dmv-aps");
+  is("social security is my income and the housing authority denied my section 8, I want a hearing", "hud-voucher-termination");
+  is("my landlord gave me a 3 day notice, I'm on social security, do I get a hearing", "ca-3day");
+  // S2: a Social Security judge is a Social Security appeal, even with a custody case in the same breath.
+  for (const x of ["the social security judge denied me at the hearing, I also have a custody case",
+    "the social security judge ruled against me at my hearing, and now my ex wants custody"]) is(x, "ssa-appeals-council");
+  // A letter about a hearing to come, with no denial word and no judge, isn't guessed as a reconsideration.
+  for (const x of ["Social Security sent me a letter and I have a hearing coming up, what's my deadline", "I got a letter from social security about a hearing"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ssa-recon", x);
+  assert.deepEqual(detectLetter("I have a hearing with the disability judge next month", t).candidates, ["ssa-recon", "ssa-appeals-council"]);
+});
+
+test("Social Security deciding, from the gate's set; a lost Social Security hearing; the DMV with no income phrase", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  for (const [x, id] of [["I get SSI and social security is stopping it because I got Medi-Cal", "ssa-benefits-ending"],
+    ["I'm on SSI and social security is cutting my check because of my Section 8 rent", "ssa-benefits-ending"],
+    ["I'm on SSDI and social security denied my disability again, the county said to appeal", "ssa-recon"],
+    ["I'm on SSI and social security says I was overpaid, the county told me to call", "ssa-overpayment"],
+    ["I receive SSI, social security sent a notice of overpayment, the IRS took my refund", "ssa-overpayment"]]) is(x, id);
+  // The county's own hearings from callers on SSI still keep the county's rule.
+  for (const x of ["I'm on SSI and the county denied my CalFresh, I want a hearing", "I'm on SSDI, Medi-Cal denied my claim, I want a fair hearing"]) is(x, "ca-noa");
+  is("I lost at my social security hearing", "ssa-appeals-council");
+  // With no income phrase, the DMV words in NOT_SSA are what keep a DMV letter out of Social Security's rules.
+  assert.notEqual(detectLetter("the DMV suspended my disability parking placard and I want a hearing", t).letter_type, "ssa-benefits-ending");
 });
