@@ -887,6 +887,38 @@ test("small claims papers from a debt collector are small claims, not a validati
   assert.equal(detectLetter("I got a letter from a debt collector", t).letter_type, "debt-validation");
 });
 
+test("a validation notice's CFPB complaint line and 'served by our office' stay validation notices; a real suit doesn't", () => {
+  const t = "2026-10-01";
+  const V = "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. ";
+  for (const x of [V + "If you have a complaint about how we are collecting this debt, contact the CFPB at consumerfinance.gov.",
+    V + "You may also submit a complaint to the Consumer Financial Protection Bureau.",
+    V + "This account was served by our office since 2024.",
+    "the collection agency says they will sue me if I don't pay"])
+    assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
+  // Short and spoken (under 2 on the printed detector): the spoken lookahead decides, and "can't sue me" isn't a suit.
+  const said = "a collection agency says they can't sue me";
+  assert.ok(RULES.find(r => r.id === "debt-validation").detect.filter(r => r.test(said)).length < 2, "printed score under 2");
+  assert.equal(detectLetter(said, t).letter_type, "debt-validation");
+  // An actual suit still isn't a validation notice.
+  for (const x of ["the summons and complaint from the debt collector", "a debt collector served me with court papers", "a debt collector sued me and I got a summons"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  for (const x of ["I was served with papers by a debt collector", "I got served by a debt collector"])
+    assert.notEqual(detectLetter(x, t).letter_type, "debt-validation", x);
+});
+
+test("small claims: 'may take me all day' isn't a threat to take me to small claims", () => {
+  for (const x of ["I'm being sued in small claims, the hearing may take me all day",
+    "my neighbor sued me in small claims and I'm worried it will take me a long time"]) {
+    const r = detectLetter(x, "2026-10-01");
+    assert.equal(r.letter_type, "ca-small-claims", x);
+    assert.equal(r.suggested_notice_date, null, x);   // "all day" and "a long time" aren't dates
+  }
+  // Threats stay out.
+  for (const x of ["they might take me to small claims", "my landlord is threatening to sue me in small claims",
+    "my landlord says they'll take me to small claims", "he'll sue me in small claims over the deposit"])
+    assert.equal(detectLetter(x, "2026-10-01").letter_type, null, x);
+});
+
 test("a validation notice's small-claims boilerplate, a collector's threat, and a time-barred disclosure stay validation notices", () => {
   const t = "2026-09-30";
   for (const x of ["This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. This debt may be eligible for small claims.",
