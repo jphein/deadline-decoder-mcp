@@ -887,6 +887,39 @@ test("small claims papers from a debt collector are small claims, not a validati
   assert.equal(detectLetter("I got a letter from a debt collector", t).letter_type, "debt-validation");
 });
 
+test("a validation notice's hypotheticals and denials about a suit stay validation notices", () => {
+  const t = "2026-10-01";
+  const V = "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. ";
+  for (const x of ["If you do not pay, you may be served with a lawsuit.", "We have not filed a complaint against you.",
+    "We have not filed a lawsuit against you.", "If you receive a summons, do not ignore it.",
+    "If you have been served with court papers, contact an attorney.", "No summons or complaint has been filed against you."])
+    assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);
+  // Said, not printed (under 2 on the printed detector): the spoken rules, civil summons first, read the guarded text too.
+  const dv = RULES.find(r => r.id === "debt-validation");
+  for (const x of ["a collection agency letter says if you receive a summons do not ignore it", "the collection agency says if you get court papers call a lawyer",
+    "a collection agency letter, it says we have not filed a lawsuit against you", "collection agency letter: if you have been served with a summons, contact an attorney"]) {
+    assert.ok(dv.detect.filter(r => r.test(x)).length < 2, x);
+    assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
+  }
+});
+
+test("a real suit still is one: the hedge guard skips the caller's own words and stops at the clause", () => {
+  const t = "2026-10-01";
+  for (const x of ["the summons and complaint from the debt collector", "a debt collector served me with court papers",
+    "a debt collector sued me and I got a summons", "I got a summons, the debt collector filed a complaint against me",
+    "I don't know if the summons from the debt collector is real", "no idea what this summons from the debt collector means",
+    "got a summons from a debt collector, never been sued before", "never been sued before, got a summons from a debt collector",
+    "not sure what to do about the summons from the debt collector",
+    "SUMMONS. You are being sued by a debt collector. If you do not respond to this summons within 30 days, the court may enter a default judgment.",
+    // A served-with-papers caller naming a debt collector or a credit card.
+    "I was served with papers by a debt collector", "I got served with legal papers over a credit card debt"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  assert.equal(detectLetter("a debt collector sued me in small claims", t).letter_type, "ca-small-claims");
+  // A landlord's papers may be an eviction: not the civil summons answer.
+  for (const x of ["I was served with papers by my landlord for back rent I owe", "I was served with papers by my landlord, I owe a debt for back rent"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+});
+
 test("a validation notice's CFPB complaint line and 'served by our office' stay validation notices; a real suit doesn't", () => {
   const t = "2026-10-01";
   const V = "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. ";
