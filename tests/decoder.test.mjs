@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { listLetterTypes, computeDeadline, detectLetter, makeReminder, todayIso, forTheEar, DecoderError } from "../src/decoder.js";
+import { listLetterTypes, computeDeadline, detectLetter, findSpokenDates, makeReminder, todayIso, forTheEar, DecoderError } from "../src/decoder.js";
 
 test("lists the letter types: the original five first, in their order, then the newer ones", () => {
   assert.deepEqual(listLetterTypes().slice(0, 5).map(t => t.id), ["ssa-recon", "ssa-initial", "ca-3day", "ca-ud", "ca-noa"]);
@@ -92,4 +92,42 @@ test("no reminder for a deadline that has passed", () => {
 test("today is computed in California time", () => {
   // 2026-09-27 05:30 UTC is still 2026-09-26 in Los Angeles
   assert.equal(todayIso("America/Los_Angeles", new Date("2026-09-27T05:30:00Z")), "2026-09-26");
+});
+
+test("a date said as an event ahead resolves forward, and is never the letter's date", () => {
+  const t = "2026-09-30";
+  const at = (text) => findSpokenDates(text, t).map(x => x.iso);
+  // Letters arrive after their date: a bare date is the most recent such day.
+  assert.deepEqual(at("the letter is dated October 1st"), ["2025-10-01"]);
+  assert.deepEqual(at("it came on the 29th of September"), ["2026-09-29"]);
+  // An event ahead: the nearest such day on or after today (into next year when needed).
+  assert.deepEqual(at("I have to report October 1st"), ["2026-10-01"]);
+  assert.deepEqual(at("the hearing is on the 5th of October"), ["2026-10-05"]);
+  assert.deepEqual(at("my rent goes up January 1st"), ["2027-01-01"]);
+  assert.deepEqual(at("tomorrow"), ["2026-10-01"]);
+  // The nearer cue wins: "dated" is nearer the date than "hearing".
+  assert.deepEqual(at("my hearing notice dated September 3rd"), ["2026-09-03"]);
+
+  const jury = detectLetter("I got a jury summons to report October 1st", t);
+  assert.equal(jury.letter_type, "jury-summons");
+  assert.equal(jury.suggested_notice_date, null);
+  assert.deepEqual(jury.dates_found, ["2026-10-01"]);
+  const rent = detectLetter("I got a rent increase notice yesterday and my rent goes up November 1st", t);
+  assert.equal(rent.letter_type, "ca-rent-increase");
+  assert.equal(rent.suggested_notice_date, "2026-09-29");
+  assert.equal(detectLetter("my rent goes up November 1st", t).suggested_notice_date, null);
+  // A printed date after today can't be the letter's date either.
+  assert.equal(detectLetter("Notice of Reconsideration dated December 1, 2026", t).suggested_notice_date, null);
+});
+
+test("the help sentence reads as a sentence for every kind of letter", () => {
+  for (const { id, needs_date } of listLetterTypes()) {
+    const r = computeDeadline(id, needs_date ? "2026-09-15" : undefined, "2026-09-16");
+    assert.match(r.help_spoken, /^For [a-z ]+(:|,) [^A-Z]*[A-Z0-9a-z]/, id);
+    assert.doesNotMatch(r.help_spoken, /, (Your|The|A) /, id);
+    assert.doesNotMatch(r.help_spoken, / — /, id);
+    assert.ok(r.speech.includes(r.free_help[0].say ?? `For free help: ${r.free_help[0].name}`), id);
+  }
+  assert.equal(computeDeadline("jury-summons", undefined, "2026-09-16").help_spoken,
+    "For questions, call your court's jury office: the phone number and website are printed on your summons.");
 });
