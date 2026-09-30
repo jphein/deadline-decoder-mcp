@@ -572,7 +572,7 @@ test("stack review: other programs' disability letters, decisions vs reconsidera
   // R3: a reconsideration that mentions the Appeals Council is still a reconsideration; a hearing decision isn't.
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We found you are not disabled. If you disagree, request a hearing before an administrative law judge. If you then disagree with the hearing, you can ask the Appeals Council.", "ssa-recon");
   is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", "ssa-appeals-council");
-  // The Oracle's verbatim reconsideration notice: "hearing decision" there is the next step, not this letter.
+  // A reconsideration notice, verbatim from review: "hearing decision" there is the next step, not this letter.
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. If you disagree, you may request a hearing before an administrative law judge. If you disagree with the hearing decision, you may ask the Appeals Council to review it.", "ssa-recon");
   // …even when the decision mentions the reconsideration that came before it (the reconsideration bonus would win).
   is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. After your reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
@@ -603,4 +603,32 @@ test("the date answer with the letter known: a bill's due date looks back only f
     assert.equal(detectLetter(x, t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01", x);
   }
   assert.equal(detectLetter("it's due October 5th", t, [], { letterType: "ssa-recon" }).suggested_notice_date, null);
+});
+
+test("routing: strong decision markers, EDD-led sentences, the judge's ruling, SSI's Notice of Decision, city names, a breath-test refusal, the VA", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  const not = (x, id) => assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  // E1: a judge's decision is a decision, even after the words "notice of reconsideration".
+  is("SOCIAL SECURITY ADMINISTRATION. After your notice of reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
+  // n1: a hearing that went against you is the Appeals Council's step.
+  is("the Social Security judge ruled against me at my hearing", "ssa-appeals-council");
+  // n3: an SSI initial determination is titled "Notice of Decision".
+  is("SOCIAL SECURITY ADMINISTRATION. Supplemental Security Income. Notice of Decision. You are not eligible for SSI. If you disagree, you may ask for reconsideration within 60 days.", "ssa-initial");
+  // S1: a sentence that leads with EDD is EDD's; one that leads with Social Security stays Social Security's.
+  is("EDD denied my disability, I'm also on social security", "ca-edd-sdi");
+  is("social security denied my disability and EDD cut off my SDI too", "ssa-initial");
+  // O2: a city named in the sentence isn't a city utility's name; "Water and Power" is.
+  is("the city of Oakland said power will be cut off", "ca-utility-shutoff");
+  not("Glendale Water and Power is disconnecting my electric", "ca-utility-shutoff");
+  // n2: refusing the breath test is an admin per se suspension.
+  is("I refused the breathalyzer and the DMV is suspending my license", "ca-dmv-aps");
+  is("DEPARTMENT OF MOTOR VEHICLES. Order of suspension. You refused the breathalyzer. You may request a hearing.", "ca-dmv-aps");
+  // The VA, not "Va." (Virginia).
+  is("I moved from Va. and they denied my disability again", "ssa-recon");
+  not("my disability check from the va is being reduced", "ssa-benefits-ending");
+  not("the VA denied my disability claim", "ssa-initial");
+  // A due date read back that lands most of a year ago is asked again, not taken.
+  assert.equal(detectLetter("the due date was December 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, null);
+  assert.equal(detectLetter("the due date was August 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01");
 });

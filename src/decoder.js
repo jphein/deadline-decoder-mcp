@@ -181,7 +181,10 @@ export function detectLetter(text, today = todayIso(), among = [], { letterType 
   // A letter's own date is never after today: a date ahead of today (or said as an event) isn't offered as it.
   const known = rule ?? (letterType ? findRule(letterType) : null);
   const all = [...findDates(text), ...findSpokenDates(text, today, { pastDue: known?.anchor === "due" })].sort((x, y) => x.at - y.at);
-  const past = all.filter(x => !x.ahead && x.iso <= today).map(x => x.iso);
+  // A bill's due date read back from today can land most of a year ago ("due December 1st", said in September): a
+  // shutoff notice comes weeks after the due date, not months, so that's asked again rather than taken.
+  const farBack = (isoStr) => known?.anchor === "due" && daysBetween(d(isoStr), d(today)) > 300;
+  const past = all.filter(x => !x.ahead && x.iso <= today && !farBack(x.iso)).map(x => x.iso);
   const dates = rule?.anchor === null ? [] : past;
   const ask = rule?.dateLabel ? (dates[0] ? `I see the date ${fmt(d(dates[0]))}. Is that the ${rule.dateLabel.toLowerCase()}?` : `What is the ${rule.dateLabel.toLowerCase()}?`) : "";
   return {
