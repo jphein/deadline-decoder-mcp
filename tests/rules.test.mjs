@@ -330,3 +330,40 @@ test("SSA benefits ending: 10 days after the presumed receipt to keep them comin
   assert.equal(detectLetter("Social Security says I'm no longer disabled and my benefits will end", t).letter_type, "ssa-benefits-ending");
   assert.equal(detectLetter("Social Security says they overpaid me and they're cutting my check", t).letter_type, "ssa-overpayment");
 });
+
+// ---- EDD disability and Paid Family Leave; the California Franchise Tax Board -------------------------------------
+test("EDD SDI/PFL: 30 days from the date on the notice (UIC § 2707.2), and not mistaken for unemployment or SSA", () => {
+  assert.equal(due("ca-edd-sdi", "2026-09-15"), "2026-10-15");
+  const t = "2026-09-30";
+  assert.equal(detectLetter("EDD denied my disability insurance claim", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("my paid family leave was denied", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EDD said my SDI was denied again", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination (DE 2517). Disability Insurance. You are not eligible for benefits. You may appeal.", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EDD denied my unemployment", t).letter_type, "ca-edd-determination");
+  assert.equal(detectLetter("Social Security denied my disability again", t).letter_type, "ssa-recon");
+  const r = computeDeadline("ca-edd-sdi", "2026-09-15", "2026-09-16");
+  assert.ok(r.next_steps.some(s => /voluntary plan\), appeal by sending a letter to your local EDD field office/.test(s)) && r.sources.some(s => s.includes("2707.2")));
+  assert.equal(due("ca-edd-sdi", "2026-09-17"), "2026-10-17");   // a Saturday: no roll, early is safe
+  assert.equal(detectLetter("my disability claim with EDD was denied", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination (DE 2514). Paid Family Leave. You are not eligible.", t).letter_type, "ca-edd-sdi");
+  // A UI notice that mentions SDI is still a UI notice; so is a UI denial that mentions disability.
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination. Unemployment Insurance. You are not eligible. To appeal use form DE 1000M. If you are disabled you may file for State Disability Insurance.", t).letter_type, "ca-edd-determination");
+  assert.notEqual(detectLetter("EDD denied my unemployment because I was on state disability before", t).letter_type, "ca-edd-sdi");
+});
+
+test("FTB Notice of Proposed Assessment: 60 days after mailing to protest (R&TC § 19041), no roll", () => {
+  assert.equal(due("ca-ftb-npa", "2026-09-15"), "2026-11-14");   // a Saturday: early is safe, and the notice prints its own last day
+  const t = "2026-09-30";
+  assert.equal(detectLetter("I got a notice of proposed assessment from the Franchise Tax Board", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("the FTB says I owe more state tax", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("FRANCHISE TAX BOARD. Notice of Proposed Assessment. If you disagree, file a written protest within 60 days.", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("I got a letter from the IRS", t).letter_type, null);
+  // A collection notice, a bill or a refund isn't a proposed assessment: the 60-day protest is long gone.
+  for (const x of ["FTB sent a final notice before levy, I owe", "the franchise tax board sent me a bill", "FTB is garnishing my wages", "the FTB sent me my refund",
+    "FRANCHISE TAX BOARD. Final Notice Before Levy and Lien. Balance due.",
+    "FRANCHISE TAX BOARD. Final notice before levy. Your time to protest the Notice of Proposed Assessment ended 60 days after it was mailed."]) assert.notEqual(detectLetter(x, t).letter_type, "ca-ftb-npa", x);
+  assert.deepEqual(detectLetter("the IRS says I owe more tax on my state tax refund", t).candidates, ["irs-cp2000", "irs-deficiency", "irs-levy"]);
+  const r = computeDeadline("ca-ftb-npa", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /File a written protest with the Franchise Tax Board/);
+  assert.ok(r.next_steps.some(s => /becomes final/.test(s)));
+});
