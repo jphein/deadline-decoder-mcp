@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /appeals council/i,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /hearing decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|notice of decision/i,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -141,7 +141,7 @@ export const RULES = [
   },
   {
     id: "ssa-initial",
-    family: "ssa", confidence: "SOLID", anchor: "notice",
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /hearing decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|notice of decision/i,
     spoken: /\b(social security|ssi|ssdi)\b.*\b(denied|turned (me )?down|rejected|said no)\b|\b(denied|turned down|rejected)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(first|denied|application|turned down)\b/i,
     keyterms: ["Social Security", "SSI", "SSDI", "disability"],
@@ -327,7 +327,7 @@ export const RULES = [
     must: /\b(traffic|speeding|notice to appear|courtesy notice|moving violation|red light|citation)\b/i,
     // Not a parking ticket, and not what comes after a missed date (a failure to appear or a civil assessment has
     // its own rules), or a court date for something else.
-    not: /\bparking\b|fail(ed|ure) to appear|\bFTA\b|civil assessment|\bwarrant\b|\b(evict\w*|landlord|jury|small claims)\b/i,
+    not: /\bparking\b|fail(ed|ure) to appear|\bFTA\b|civil assessment|\bwarrant\b|\b(missed|didn't (go|show)|did not (go|appear|show))\b.*\b(court|date|appear\w*)\b|\b(evict\w*|landlord|jury|small claims)\b/i,
     detect: [/\b(traffic|speeding|moving violation|red light|vehicle code)\b/i, /notice to appear|courtesy notice|citation/i, /\b(appear|appearance date|bail|pay|traffic court|trial by (written )?declaration)\b/i],
     spoken: /^(?=.*\b(traffic|speeding|red light|moving violation|courtesy notice|pulled (me )?over)\b)/is,
     answers: /\b(traffic|speeding|red light|moving|driving)\b/i,
@@ -518,6 +518,7 @@ export const RULES = [
       "If it's your disability that's ending, the appeal alone isn't enough: in the same request, ask for reconsideration and say that you want your benefits to continue.",
       "If you're late, ask anyway and explain why: a good reason can still count.",
       "If you lose the appeal, you may have to pay back what you got while waiting.",
+      "For retirement or other Social Security benefits, appealing doesn't keep payments going.",
     ],
     help: [LSNC, LAWHELP, TWO11, SSA],
     sources: ["20 CFR 416.1336(b) (SSI: payments continue on an appeal within 10 days after receipt)",
@@ -756,7 +757,7 @@ export const RULES = [
     // A nonpayment disconnection by a private energy company only: not a landlord (Civil Code § 789.3), not a
     // safety outage, not a city or district utility or propane (§ 779.1 doesn't cover them), not a past-due bill.
     must: /shut ?off|shut\w* (it |my \w+ )?off|disconnect\w*|terminat\w* (of )?(your )?service|turn\w* off|cut\w* off/i,
-    not: /\b(landlord|owner|manager|PSPS|public safety|fire weather|wildfire|outage|propane|butane|SMUD|LADWP|municipal|utility district|irrigation district|department of water and power)\b|\bcity of [a-z]+ (utilities|electric|light|power)\b|\bwater (service|bill|system|company|district|department|account)\b/i,
+    not: /\b(landlord|owner|manager|PSPS|public safety|fire weather|wildfire|outage|propane|butane|SMUD|LADWP|municipal|utility district|irrigation district|department of water and power)\b|\bcity of [a-z]+( [a-z]+)* (utilities|electric|light|power)\b|\bcity (utilities|electric|light and power)\b|\bhousing authority\b|\bwater (service|bill|system|company|district|department|account)\b/i,
     detect: [/PG&E|pacific gas|edison|socalgas|SDG&E|\b(electric\w*|gas|energy|power)\b/i, /shut ?off|disconnect\w*|terminat\w*|48[- ]hour|turn\w* off|cut\w* off/i, /\b(notice|pay|payment|arrangement|balance|past due)\b/i],
     spoken: /^(?=.*\b(pg&e|pg and e|pge|edison|socalgas|sdg&e|electric\w*|power|gas|lights|utility|utilities)\b)(?=.*\b(shut\w* off|shutoff|disconnect\w*|turn\w* off|cut\w* off)\b)/is,
     answers: /\b(power|electric\w*|gas|pg&e|pge|edison|utility)\b/i,
@@ -785,7 +786,7 @@ export const RULES = [
     // A water shutoff for nonpayment: not a gas or electric shutoff that mentions hot water or a water heater (unless
     // it names the water service or bill), not a landlord, not an outage, not a past-due bill.
     must: /^(?=.*\bwater\b)(?=.*(shut ?off|shut\w* (it |my \w+ )?off|disconnect\w*|discontinu\w*|terminat\w*|turn\w* off|cut\w* off))/is,
-    not: /^(?!.*\bwater (service|bill|system|company|district|department|account)\b).*\b(gas|socalgas|pg&e|pge|sdg&e|edison|electric\w*|power|water heater|hot water)\b|\b(landlord|owner|manager|outage|main break|boil)\b/is,
+    not: /^(?!.*\bwater (service|bill|system|company|district|department|account)\b).*\b(gas|socalgas|pg&e|pge|sdg&e|edison|electric\w*|power|water heater|hot water)\b|\b(landlord|owner|manager|housing authority|outage|main break|boil)\b/is,
     detect: [/\bwater\b/i, /shut ?off|disconnect\w*|discontinu\w*|terminat\w*|turn\w* off|cut\w* off/i, /\b(notice|pay|payment|bill|balance|past due)\b/i],
     spoken: /^(?=.*\bwater\b)(?=.*\b(shut\w* off|shutoff|disconnect\w*|turn\w* off|cut\w* off|discontinu\w*)\b)/is,
     answers: /\bwater\b/i,
@@ -816,7 +817,7 @@ export const RULES = [
     // (the IRS, FTB, EDD, Social Security, child support, a county or court): the validation rules cover debt collectors.
     not: /\b(su(e|ed|es|ing)|lawsuit|summons|court papers|complaint|served)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court|trash|garbage|recycling)\b/i,
     detect: [/debt collect\w*|collection agency|collector/i, /validation|dispute|verif\w*/i, /\b(owe|balance|creditor|debt)\b/i],
-    spoken: /^(?!.*\b(su(e|ed|es|ing)|lawsuit|summons|court papers)\b).*(debt collect\w*|collection agency|\bcollections? (letter|notice|agency|company)\b|validation notice)/is,
+    spoken: /^(?!.*\b(su(e|ed|es|ing)|lawsuit|summons|court papers)\b).*(debt collect\w*|collection agency|\b(sent|went|gone|turned over) (\w+ ){0,3}to collections\b|\bcollections? (letter|notice|agency|company)\b|validation notice)/is,
     answers: /\b(collect\w*|collector|debt)\b/i,
     keyterms: ["debt collector", "collection agency", "validation notice"],
     headline: "If you don't think you owe it, dispute it in writing by the date on the notice",
@@ -844,7 +845,8 @@ export const RULES = [
     note: "This is for a car bought on a dealer's installment contract. If the notice was mailed from or to outside California, it's 20 days instead of 15, and 30 with the extension. The days count from when the notice was given or mailed, not from the repossession. I don't move the date for a weekend or holiday, so it's the safe date to act by.",
     must: /repo(ssess\w*)?\b|intent to (sell|dispose)|redeem|reinstat\w*/i,
     // A car on a dealer contract only (§ 2983.2): not furniture, a home, a storage unit, a pawn, or a license or benefits.
-    not: /\b(furniture|rent[- ]to[- ]own|appliances?|tv|television|house|home|trustee|storage|pawn|license|licence|medi-cal|benefits)\b/i,
+    // Not after the sale: there's nothing to redeem then, and "you owe the difference" is a deficiency.
+    not: /\b(furniture|rent[- ]to[- ]own|appliances?|tv|television|house|home|trustee|storage|pawn|license|licence|medi-cal|benefits|sold|auction(ed)?|deficiency|owe the (difference|rest|balance))\b/i,
     detect: [/repossess\w*|\brepo\b/i, /intent to (sell|dispose)|dispos\w*|\bsale\b/i, /redeem|reinstat\w*|vehicle|car\b|motor vehicle/i],
     spoken: /\brepo(ssess\w*)?\b/i,
     answers: /\b(repo\w*|car|vehicle|truck)\b/i,
@@ -871,7 +873,7 @@ export const RULES = [
     must: /housing authority|\bPHA\b|housing choice voucher|section 8|\bvoucher\b/i,
     not: /\b(landlord|owner)\b/i,
     detect: [/housing authority|\bPHA\b/i, /housing choice voucher|section 8|\bvoucher\b|housing assistance/i, /terminat\w*|informal hearing|end\w*|stop\w*/i],
-    spoken: /^(?!.*\b(landlord|owner)\b)(?=.*\b(housing authority|pha|section 8|section eight|voucher)\b)(?=.*\b(terminat\w*|losing|lose|taking (away )?my|ending|end|stop\w*|cut\w* off|kick\w* me off)\b)/is,
+    spoken: /^(?!.*\b(landlord|owner)\b)(?=.*\b(housing authority|pha|section 8|section eight|voucher)\b)(?=.*\b(terminat\w*|kick\w* (me )?off|losing|lose|taking (away )?my|ending|end|stop\w*|cut\w* off|kick\w* me off)\b)/is,
     answers: /\b(voucher|section 8|section eight|housing authority)\b/i,
     keyterms: ["housing authority", "informal hearing", "housing choice voucher"],
     headline: "Ask the housing authority for an informal hearing by the date on the notice",
@@ -1006,6 +1008,11 @@ export const RULES = [
               "Revenue and Taxation Code § 19042 (with no protest, the assessment becomes final when the 60 days end)"],
   }),
 ];
+
+// The Social Security rules never claim another program's disability letter when Social Security isn't named:
+// EDD or state disability (SDI), workers' comp (WCAB), the VA, or long-term disability insurance through work.
+const NOT_SSA = /^(?!.*\b(social security|SSA|SSI|SSDI)\b).*\b(EDD|employment development|state disability|SDI|workers'? ?comp\w*|WCAB|VA|veterans?|long[- ]term disability|disability insurance (through|from) (work|my job|my employer)|private disability)\b/is;
+for (const r of RULES) if (r.family === "ssa") r.not = r.not ? new RegExp(`${r.not.source}|${NOT_SSA.source}`, "is") : NOT_SSA;
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",

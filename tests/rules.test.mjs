@@ -552,3 +552,40 @@ test("public housing lease termination: at least 30 days for unpaid rent (24 CFR
     assert.notEqual(detectLetter(x, t).letter_type, "hud-voucher-termination", x);
   assert.equal(detectLetter("HOUSING AUTHORITY. Public housing lease termination notice. Failure to pay rent. You may request a grievance hearing.", t).letter_type, "hud-public-housing");
 });
+
+test("stack review: other programs' disability letters, decisions vs reconsiderations, missed dates, sold cars, the housing authority", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  const not = (x, id) => assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  // R1/R2: workers' comp, state disability, long-term disability through work and the VA aren't Social Security.
+  not("the judge denied my workers comp disability claim at the hearing", "ssa-appeals-council");
+  for (const x of ["my state disability is stopping", "my long term disability insurance through work is ending", "the VA is reducing my disability rating"])
+    not(x, "ssa-benefits-ending");
+  not("the VA denied my disability again", "ssa-recon");
+  is("EDD stopped my disability payments", "ca-edd-sdi");
+  for (const x of ["EDD denied my unemployment because I was on state disability before", "EDD denied my unemployment and told me to apply for disability instead"])
+    is(x, "ca-edd-determination");
+  is("Social Security says my retirement benefits are stopping", "ssa-benefits-ending");
+  // A sentence that names Social Security stays Social Security's, even when it mentions EDD too.
+  is("social security denied my disability and EDD cut off my SDI too", "ssa-initial");
+  assert.ok(computeDeadline("ssa-benefits-ending", "2026-09-13", "2026-09-14").next_steps.some(s => /retirement or other Social Security benefits, appealing doesn't keep payments going/.test(s)));
+  // R3: a reconsideration that mentions the Appeals Council is still a reconsideration; a hearing decision isn't.
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We found you are not disabled. If you disagree, request a hearing before an administrative law judge. If you then disagree with the hearing, you can ask the Appeals Council.", "ssa-recon");
+  is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", "ssa-appeals-council");
+  // …even when the decision mentions the reconsideration that came before it (the reconsideration bonus would win).
+  is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. After your reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
+  // R4: a missed traffic court date isn't a ticket to act on by its date.
+  for (const x of ["I missed my traffic court date", "I didn't go to court for my traffic ticket and now there's a fee"]) not(x, "ca-traffic-ticket");
+  // After the sale there's nothing to redeem: that's a deficiency.
+  for (const x of ["they repossessed my car and sold it and now I owe the difference", "my car was repossessed and sold at auction, they say I owe a deficiency"])
+    not(x, "ca-repo-notice");
+  // The housing authority as landlord isn't a utility; multi-word city utilities aren't private ones.
+  not("the housing authority is shutting off my water", "ca-water-shutoff");
+  not("the housing authority says they're turning off the power in my unit", "ca-utility-shutoff");
+  for (const x of ["the city of Palo Alto utilities is shutting off my electric", "City Utilities sent a disconnect notice for my power"]) not(x, "ca-utility-shutoff");
+  // A voucher ending with no one named goes to the housing authority's rule, which is tried first (a short hearing window).
+  is("my section 8 voucher contract is being terminated", "hud-voucher-termination");
+  assert.ok(SPOKEN_ORDER.indexOf("hud-voucher-termination") < SPOKEN_ORDER.indexOf("ca-subsidy-end"));
+  is("I got kicked off section 8", "hud-voucher-termination");
+  is("the hospital sent my bill to collections", "debt-validation");
+});
