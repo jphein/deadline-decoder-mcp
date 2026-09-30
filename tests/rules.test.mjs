@@ -896,6 +896,13 @@ test("a validation notice's small-claims boilerplate, a collector's threat, and 
     assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
   // An actual suit still isn't.
   assert.equal(detectLetter("a debt collector sued me and I got a summons", t).letter_type, "ca-civil-summons");
+  // More boilerplate and threats, from the gate: a threat "if I don't pay", "this is not a lawsuit", "we may file a claim in
+  // small claims court", and a time-barred disclosure naming the creditor.
+  for (const x of ["a debt collector says they'll take me to small claims if I don't pay",
+    "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. This is not a lawsuit; no court case has been filed.",
+    "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. If you do not pay, we may file a claim in small claims court.",
+    "This is a communication from a debt collector. Validation notice. The law limits how long you can be sued on a debt. Because of the age of your debt, XYZ Bank cannot sue you for it."])
+    assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
   // A threat to sue isn't small claims papers.
   for (const x of ["they might take me to small claims", "my landlord is threatening to sue me in small claims"])
     assert.notEqual(detectLetter(x, t).letter_type, "ca-small-claims", x);
