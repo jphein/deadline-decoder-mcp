@@ -820,7 +820,7 @@ export const RULES = [
     must: /debt collect\w*|collection agency|collector|validation notice|\bcollections?\b/i,
     // Not a lawsuit (court papers have their own deadline), and not a government agency collecting its own debt
     // (the IRS, FTB, EDD, Social Security, child support, a county or court): the validation rules cover debt collectors.
-    not: /\b(su(e|ed|es|ing)|lawsuit|summons|court papers|complaint|served)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court|trash|garbage|recycling)\b/i,
+    not: /\b(su(e|ed|es|ing)|lawsuit|summons|court papers|complaint|served|small claims)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court|trash|garbage|recycling)\b/i,
     detect: [/debt collect\w*|collection agency|collector/i, /validation|dispute|verif\w*/i, /\b(owe|balance|creditor|debt)\b/i],
     spoken: /^(?!.*\b(su(e|ed|es|ing)|lawsuit|summons|court papers)\b).*(debt collect\w*|collection agency|\b(sent|went|gone|turned over) (\w+ ){0,3}to collections\b|\bcollections? (letter|notice|agency|company)\b|validation notice)/is,
     answers: /\b(collect\w*|collector|debt)\b/i,
