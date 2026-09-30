@@ -106,7 +106,7 @@ export const RULES = [
   {
     id: "ssa-recon",
     family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*)\b)(?=.*\b(small claims|custody|divorce|restraining order|immigration|deportation|criminal|misdemeanor|felony|probation|parole|traffic|school|IEP|expulsion|IRS|internal revenue|lev(y|ies|ying)|garnish\w*|debt collector|collection agency|PG&E|utility|shut ?off)\b)|^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(unlawful detainer|eviction (summons|papers|notice|lawsuit|case)|(3|three)[- ]day notice|notice to (vacate|quit|pay rent))\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
-    spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
+    spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice|reconsidered)\b|\b(again|second time|twice|reconsidered)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
     title: "Social Security: my claim was denied (again)",
@@ -200,7 +200,7 @@ export const RULES = [
   {
     id: "ca-ud",
     family: "housing", confidence: "SOLID", anchor: "served",
-    spoken: /\beviction papers\b|unlawful detainer|\bsu(ed|ing) (me )?to evict|\b(summons|court papers)\b.*\b(evict\w*|landlord|rent|tenant)\b|\b(evict\w*|landlord|rent)\b.*\b(summons|court papers)\b/i,
+    spoken: /\beviction papers\b|unlawful detainer|\b(filed|filing|file) (an |the )?eviction\b|\bsu(ed|ing) (me )?to evict|\b(summons|court papers)\b.*\b(evict\w*|landlord|rent|tenant)\b|\b(evict\w*|landlord|rent)\b.*\b(summons|court papers)\b/i,
     answers: /\b(evict\w*|landlord|rent|tenant|apartment|housing|move out)\b/i,
     keyterms: ["unlawful detainer", "eviction", "summons"],
     title: "California: court papers for an eviction (Summons, unlawful detainer)",
@@ -481,6 +481,9 @@ export const RULES = [
     count: { days: 60, unit: "calendar", mail: 5, roll: "federal" },
     mailWho: "Social Security",
     must: /appeals council|hearing decision|administrative law judge|\bALJ\b/i,
+    // Another court's hearing that went against a caller on Social Security (custody, criminal, immigration…) isn't the
+    // Appeals Council's, unless the text names a Social Security appeal.
+    not: /^(?!.*\b(appeals council|ALJ|administrative law judge|(disability|ssi|ssdi|social security) (claim|case|appeal|hearing)|(claim|case|appeal|hearing) (for|about) (my )?(disability|ssi|ssdi|social security))\b)(?=.*\b(custody|family court|criminal|bail|immigration|asylum|deport\w*|small claims|traffic court)\b)/is,
     detect: [/appeals council/i, /\b(hearing decision|administrative law judge|unfavorable|dismiss\w*)\b/i, /social security|supplemental security income|\bSSI\b/i],
     spoken: /\bappeals council\b|^(?=.*\b(social security|ssi|ssdi|disability)\b)(?=.*\b(judge|hearing|alj)\b)(?=.*\b(denied|lost|unfavorable|said no|turned (me )?down|against me|dismiss\w*)\b)/is,
     answers: /\b(judge|hearing|appeals council|decision)\b/i,

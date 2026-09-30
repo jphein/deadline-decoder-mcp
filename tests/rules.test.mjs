@@ -704,3 +704,17 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   assert.equal(detectLetter("the due date was December 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, null);
   assert.equal(detectLetter("the due date was August 1st", t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01");
 });
+
+test("follow-ups: other courts' hearings, 'reconsidered', and 'filed an eviction'", () => {
+  const t = "2026-09-30";
+  // Another court's hearing that went against a caller on Social Security isn't the Appeals Council's.
+  for (const x of ["I'm on social security and I lost my custody hearing", "I'm on SSI and the judge denied bail at my criminal hearing",
+    "I'm on SSDI and my immigration judge denied my asylum at the hearing"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ssa-appeals-council", x);
+  // …unless it names a Social Security appeal.
+  assert.equal(detectLetter("my disability hearing went against me, and I also have a custody case, social security", t).letter_type === "ssa-appeals-council"
+    || detectLetter("my disability hearing went against me, and I also have a custody case, social security", t).candidates.includes("ssa-appeals-council"), true);
+  assert.equal(detectLetter("social security reconsidered and I still can't get disability", t).letter_type, "ssa-recon");
+  assert.equal(detectLetter("I get SSI and my landlord filed an eviction, the hearing is next week", t).letter_type, "ca-ud");
+  assert.equal(detectLetter("I lost my eviction case and the sheriff put a notice on my door", t).letter_type, "ca-sheriff-vacate");
+});
