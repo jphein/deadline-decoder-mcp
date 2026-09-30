@@ -80,3 +80,9 @@ test("protocol version header", async () => {
   await new Promise(r => server.close(r));
   assert.equal(body.result.protocolVersion, "2025-11-25");
 });
+
+test("detect_letter reads a date answer the way the known letter's date is (letter_type)", () => withClient(async (client) => {
+  const ask = (text, letter_type) => client.callTool({ name: "detect_letter", arguments: { text, today: "2026-09-30", ...(letter_type ? { letter_type } : {}) } });
+  assert.equal((await ask("the due date was August 1st")).structuredContent.suggested_notice_date, null);
+  assert.equal((await ask("the due date was August 1st", "ca-water-shutoff")).structuredContent.suggested_notice_date, "2026-08-01");
+}));

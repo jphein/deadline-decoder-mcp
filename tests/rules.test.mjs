@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, a shutoff notice, a debt collector or a repossessed car, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -214,7 +214,8 @@ test("Notice of Action: the hearing date, and how to keep benefits the same whil
   assert.equal(r.deadline, "2026-11-30");
   // the cutoff is the effective date on the notice, which can come sooner than 10 days, so no computed day is offered
   assert.deepEqual(r.also.map(a => [a.date, a.confidence]), [[null, "HEDGE"]]);
-  assert.match(r.speech, /Ask for a state hearing\. You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect\. That date is printed on the notice, usually at least 10 days after it, so ask right away\. Here's how I counted/);
+  assert.match(r.speech, /Ask for a state hearing\. You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect\. That date is printed on the notice, usually at least 10 days after it, so ask right away\. If you lose, you may have to pay back CalFresh benefits you got while waiting\. Here's how I counted/);
+  assert.ok(r.next_steps.some(s => /Medi-Cal renewal decision, you may have 120 days/.test(s)) && r.sources.some(s => s.includes("431.231(a)")));
   assert.doesNotMatch(r.speech, /is safe/);
   assert.equal(r.letter_title, "Medi-Cal, CalFresh or CalWORKs: a Notice of Action");
 });
@@ -305,4 +306,301 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   const q = detectLetter("I got a notice to vacate", t);
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
+});
+
+// ---- Social Security: the Appeals Council, and keeping benefits while you appeal ---------------------------------
+test("SSA Appeals Council: 60 days after the presumed receipt of the hearing decision (20 CFR 404.968)", () => {
+  assert.equal(due("ssa-appeals-council", "2026-09-13"), "2026-11-17");
+  const t = "2026-10-01";
+  assert.equal(detectLetter("the judge denied my disability at the hearing", t).letter_type, "ssa-appeals-council");
+  assert.equal(detectLetter("I want the Appeals Council to look at my Social Security case", t).letter_type, "ssa-appeals-council");
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", t).letter_type, "ssa-appeals-council");
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. Date: September 13, 2026. If you disagree, you may request a hearing before an administrative law judge.", t).letter_type, "ssa-recon");
+});
+
+test("SSA benefits ending: 10 days after the presumed receipt to keep them coming, and the 60-day appeal date", () => {
+  assert.equal(due("ssa-benefits-ending", "2026-09-13"), "2026-09-28");
+  const r = computeDeadline("ssa-benefits-ending", "2026-09-13", "2026-09-14");
+  assert.match(r.speech, /^Your deadline is Monday, September 28, 2026, 14 days from today\. Appeal, and ask to keep your benefits while you do\. To appeal at all, you have until Tuesday, November 17, 2026, 60 days after you get the notice\. After the earlier date, your payments usually stop while you wait, unless you have a good reason for being late\./);
+  assert.ok(r.next_steps.some(s => /appealing in time is usually enough/.test(s)) && r.next_steps.some(s => /the appeal alone isn't enough/.test(s)));
+  assert.ok(r.sources.some(s => s.includes("416.996(c)")));
+  assert.ok(r.sources.some(s => s.includes("416.1336(b)")) && r.sources.some(s => s.includes("404.1597a(f)(1)")));
+  const t = "2026-10-01";
+  assert.equal(detectLetter("they're stopping my SSI", t).letter_type, "ssa-benefits-ending");
+  assert.equal(detectLetter("Social Security says I'm no longer disabled and my benefits will end", t).letter_type, "ssa-benefits-ending");
+  assert.equal(detectLetter("Social Security says they overpaid me and they're cutting my check", t).letter_type, "ssa-overpayment");
+});
+
+// ---- EDD disability and Paid Family Leave; the California Franchise Tax Board -------------------------------------
+test("EDD SDI/PFL: 30 days from the date on the notice (UIC § 2707.2), and not mistaken for unemployment or SSA", () => {
+  assert.equal(due("ca-edd-sdi", "2026-09-15"), "2026-10-15");
+  const t = "2026-09-30";
+  assert.equal(detectLetter("EDD denied my disability insurance claim", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("my paid family leave was denied", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EDD said my SDI was denied again", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination (DE 2517). Disability Insurance. You are not eligible for benefits. You may appeal.", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EDD denied my unemployment", t).letter_type, "ca-edd-determination");
+  assert.equal(detectLetter("Social Security denied my disability again", t).letter_type, "ssa-recon");
+  const r = computeDeadline("ca-edd-sdi", "2026-09-15", "2026-09-16");
+  assert.ok(r.next_steps.some(s => /voluntary plan\), appeal by sending a letter to your local EDD field office/.test(s)) && r.sources.some(s => s.includes("2707.2")));
+  assert.equal(due("ca-edd-sdi", "2026-09-17"), "2026-10-17");   // a Saturday: no roll, early is safe
+  assert.equal(detectLetter("my disability claim with EDD was denied", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination (DE 2514). Paid Family Leave. You are not eligible.", t).letter_type, "ca-edd-sdi");
+  // A UI notice that mentions SDI is still a UI notice; so is a UI denial that mentions disability.
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination. Unemployment Insurance. You are not eligible. To appeal use form DE 1000M. If you are disabled you may file for State Disability Insurance.", t).letter_type, "ca-edd-determination");
+  assert.notEqual(detectLetter("EDD denied my unemployment because I was on state disability before", t).letter_type, "ca-edd-sdi");
+});
+
+test("FTB Notice of Proposed Assessment: 60 days after mailing to protest (R&TC § 19041), no roll", () => {
+  assert.equal(due("ca-ftb-npa", "2026-09-15"), "2026-11-14");   // a Saturday: early is safe, and the notice prints its own last day
+  const t = "2026-09-30";
+  assert.equal(detectLetter("I got a notice of proposed assessment from the Franchise Tax Board", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("the FTB says I owe more state tax", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("FRANCHISE TAX BOARD. Notice of Proposed Assessment. If you disagree, file a written protest within 60 days.", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("I got a letter from the IRS", t).letter_type, null);
+  // A collection notice, a bill or a refund isn't a proposed assessment: the 60-day protest is long gone.
+  for (const x of ["FTB sent a final notice before levy, I owe", "the franchise tax board sent me a bill", "FTB is garnishing my wages", "the FTB sent me my refund",
+    "FRANCHISE TAX BOARD. Final Notice Before Levy and Lien. Balance due.",
+    "FRANCHISE TAX BOARD. Final notice before levy. Your time to protest the Notice of Proposed Assessment ended 60 days after it was mailed."]) assert.notEqual(detectLetter(x, t).letter_type, "ca-ftb-npa", x);
+  assert.deepEqual(detectLetter("the IRS says I owe more tax on my state tax refund", t).candidates, ["irs-cp2000", "irs-deficiency", "irs-levy"]);
+  const r = computeDeadline("ca-ftb-npa", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /File a written protest with the Franchise Tax Board/);
+  assert.ok(r.next_steps.some(s => /becomes final/.test(s)));
+});
+
+// ---- housing: the sheriff's Notice to Vacate, and a subsidy contract ending ------------------------------------------
+test("sheriff's Notice to Vacate: 5 days from service, no mailing extension, a weekend last day rolls (CCP §§ 715.020, 12a)", () => {
+  assert.equal(due("ca-sheriff-vacate", "2026-09-15"), "2026-09-21");   // day 5 is Sunday the 20th: CCP § 12a moves it to Monday
+  const t = "2026-09-16";
+  const r = computeDeadline("ca-sheriff-vacate", "2026-09-15", t);
+  assert.match(r.speech, /^You have until Monday, September 21, 2026 to move out, 5 days from today\. After that, the sheriff can lock you out\. Call free legal aid today about asking the court for more time\./);
+  assert.ok(r.next_steps.some(s => /Mailing doesn't add days/.test(s)) && r.sources.some(s => s.includes("684.120")));
+  assert.equal(detectLetter("the sheriff posted a notice to vacate on my door", t).letter_type, "ca-sheriff-vacate");
+  // A landlord's lockout threat isn't a sheriff's notice: a lockout needs a judgment and the sheriff (Civil Code § 789.3).
+  for (const x of ["they're going to lock me out", "my landlord says he is going to lock me out", "my landlord threatened to lock me out if I do not pay"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-sheriff-vacate", x);
+  assert.equal(detectLetter("the sheriff is coming to lock me out on Monday", t).letter_type, "ca-sheriff-vacate");
+  assert.equal(due("ca-sheriff-vacate", "2026-11-06"), "2026-11-12");   // day 5 is Veterans Day, Wed Nov 11: the next court day
+  assert.equal(detectLetter("SHERIFF'S DEPARTMENT. NOTICE TO VACATE. Writ of Possession of Real Property. You must vacate within five days.", t).letter_type, "ca-sheriff-vacate");
+  assert.deepEqual(detectLetter("my landlord gave me a notice to vacate", t).candidates, ["ca-30day-notice", "ca-60day-notice"]);
+});
+
+test("a subsidy contract ending: 90 days after you get the notice at your share of the rent (Civil Code § 1954.535)", () => {
+  assert.equal(due("ca-subsidy-end", "2026-09-15"), "2026-12-14");
+  const r = computeDeadline("ca-subsidy-end", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^Your landlord can't make you pay more than your share of the rent through Monday, December 14, 2026, 89 days from today\./);
+  assert.match(r.how_we_counted[0], /^Received /);
+  assert.ok(r.sources.some(s => s.includes("65863.10")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("my landlord is leaving Section 8", t).letter_type, "ca-subsidy-end");
+  assert.equal(detectLetter("the owner won't renew the voucher contract", t).letter_type, "ca-subsidy-end");
+  assert.equal(detectLetter("NOTICE OF NONRENEWAL. The owner will not renew the Housing Assistance Payments contract (Section 8). This notice gives you 90 days.", t).letter_type, "ca-subsidy-end");
+  // The housing authority ending a family's voucher is a different letter; so is a rent increase for a tenant on Section 8.
+  for (const x of ["the housing authority is terminating my voucher", "my voucher is being terminated", "HOUSING AUTHORITY. Notice of termination of assistance. Section 8 Housing Choice Voucher."])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-subsidy-end", x);
+  assert.notEqual(detectLetter("my landlord raised the rent and I am on Section 8", t).letter_type, "ca-subsidy-end");
+  // The landlord ending the tenancy of a tenant who has a voucher is a notice to move, not the contract ending.
+  assert.notEqual(detectLetter("my landlord is ending my lease and I have section 8", t).letter_type, "ca-subsidy-end");
+});
+
+// ---- utilities: electricity, gas and water shutoffs --------------------------------------------------------------
+test("energy shutoff: no shutoff before 15 days after the notice is mailed (PUC § 779.1), HEDGE", () => {
+  assert.equal(due("ca-utility-shutoff", "2026-09-15"), "2026-09-30");
+  const r = computeDeadline("ca-utility-shutoff", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^A private utility can't shut off your service before Wednesday, September 30, 2026, 14 days from today\. Call the utility before that date/);
+  assert.ok(r.next_steps.some(s => /24 hours ahead, or leave a notice at least 48 hours ahead/.test(s)));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("PG&E sent a notice they're shutting off my power", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("my gas is going to be turned off", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("PACIFIC GAS AND ELECTRIC. 15-Day Notice. Your electric service may be disconnected for a past due balance. Call us to make a payment arrangement.", t).letter_type, "ca-utility-shutoff");
+});
+
+test("water shutoff: no shutoff before a bill is 60 days late (H&SC § 116908), HEDGE, and never read as power", () => {
+  assert.equal(due("ca-water-shutoff", "2026-08-01"), "2026-09-30");
+  const r = computeDeadline("ca-water-shutoff", "2026-08-01", "2026-09-16");
+  assert.match(r.speech, /^Most water systems can't shut off your water before Wednesday, September 30, 2026, 14 days from today\./);
+  assert.match(r.how_we_counted[0], /^The bill was due Saturday, August 1, 2026\./);
+  assert.ok(r.next_steps.some(s => /7 business days/.test(s)) && r.sources.some(s => s.includes("116904")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("they're turning off my water", t).letter_type, "ca-water-shutoff");
+  assert.equal(detectLetter("CITY WATER DEPARTMENT. Notice of discontinuation of water service. Your account is past due.", t).letter_type, "ca-water-shutoff");
+  assert.equal(detectLetter("the utility says it will shut off my water", t).letter_type, "ca-water-shutoff");
+});
+
+test("shutoffs: gas vs water, no roll, HEDGE, the due-date answer, and the letters they must never claim", () => {
+  const t = "2026-09-30";
+  // A gas shutoff that mentions hot water is a gas shutoff (15 days), not a water shutoff (60).
+  assert.equal(detectLetter("SoCalGas is shutting off my gas and I won't have hot water", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("they're turning off the gas and my water heater won't work", t).letter_type, "ca-utility-shutoff");
+  // No roll: a Sunday stays a Sunday (early is safe). Both are HEDGE.
+  assert.equal(due("ca-utility-shutoff", "2026-09-19"), "2026-10-04");
+  assert.equal(due("ca-water-shutoff", "2026-08-05"), "2026-10-04");
+  assert.equal(rule("ca-utility-shutoff").confidence, "HEDGE");
+  assert.equal(rule("ca-water-shutoff").confidence, "HEDGE");
+  // The answer to "when was the bill due?" looks back.
+  assert.equal(detectLetter("water shutoff, it was due August 1st", t).suggested_notice_date, "2026-08-01");
+  assert.equal(detectLetter("my water is getting shut off, the due date was the 1st of August", t).suggested_notice_date, "2026-08-01");
+  // Never: a past-due bill with no shutoff, a landlord (Civil Code § 789.3), a safety outage, a city or district
+  // utility, propane.
+  const never = { "ca-utility-shutoff": ["my PG&E bill is past due", "PG&E. Your balance is past due. Please pay by October 15.", "my landlord is going to shut off my power",
+      "PG&E public safety power shutoff notice for Thursday", "PG&E says they're turning off power for fire weather", "SMUD is going to shut off my power",
+      "LADWP sent a disconnection notice for my electric", "my propane gas is getting cut off"],
+    "ca-water-shutoff": ["my water bill is past due", "CITY WATER DEPARTMENT. Your water bill is past due. Please pay the balance.", "my landlord shut off the water to force me out",
+      "there's a water outage on my street and they shut it off"] };
+  for (const [id, xs] of Object.entries(never)) for (const x of xs) assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  const w = computeDeadline("ca-water-shutoff", "2026-08-01", "2026-09-16");
+  assert.ok(w.next_steps.some(s => /while the appeal is pending, the water system can't shut off your water/.test(s)));
+  assert.ok(w.next_steps.some(s => /under twice the poverty level/.test(s)) && w.sources.some(s => s.includes("for 60 days or more")));
+});
+
+// ---- traffic: a traffic ticket, and a DMV suspension after a DUI arrest --------------------------------------------
+test("traffic ticket: HEDGE with nothing to count; the ticket or courtesy notice prints the date", () => {
+  const r = computeDeadline("ca-traffic-ticket", undefined, "2026-09-16");
+  assert.equal(r.deadline, null);
+  assert.match(r.speech, /^A traffic ticket prints its own date to appear by, and that's the date that counts, unless the court has given you a later one in writing\. Act by the appearance date on your ticket\./);
+  assert.ok(r.next_steps.some(s => /extends that date by 25 calendar days and sends the TR-205 form: file it and deposit the bail by the new date/.test(s)));
+  assert.ok(r.sources.some(s => s.includes("4.210(b)")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("I got a speeding ticket", t).letter_type, "ca-traffic-ticket");
+  assert.equal(detectLetter("the traffic court sent me a courtesy notice", t).letter_type, "ca-traffic-ticket");
+  assert.equal(detectLetter("I got a parking ticket", t).letter_type, "ca-parking-ticket");
+  assert.equal(detectLetter("SUPERIOR COURT OF CALIFORNIA. Traffic courtesy notice. Citation No. 0000. Vehicle Code 22350. Appearance date: October 20, 2026. Bail: $0.", t).letter_type, "ca-traffic-ticket");
+  assert.equal(detectLetter("I got a speeding ticket", t).needs_date, false);
+  for (const x of ["I got a notice to appear in court for my eviction", "the court says I failed to appear on my traffic ticket and added a civil assessment",
+    "I got a citation for my dog barking"]) assert.notEqual(detectLetter(x, t).letter_type, "ca-traffic-ticket", x);
+  assert.equal(detectLetter("I got a red light camera ticket", t).letter_type, "ca-traffic-ticket");
+});
+
+test("DMV admin per se: 10 days from getting the notice to ask for a hearing (Vehicle Code § 13558), no roll", () => {
+  assert.equal(due("ca-dmv-aps", "2026-09-15"), "2026-09-25");
+  const r = computeDeadline("ca-dmv-aps", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^Your deadline is Friday, September 25, 2026, 9 days from today\. Ask the DMV for a hearing\./);
+  assert.match(r.how_we_counted[0], /^Received /);
+  assert.ok(r.next_steps.some(s => /hold the hearing and decide before the suspension starts, or put the suspension on hold/.test(s)) && r.sources.some(s => s.includes("(e)")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("the officer gave me a pink notice, the DMV is suspending my license", t).letter_type, "ca-dmv-aps");
+  assert.equal(detectLetter("I got a DUI and the DMV is taking my license", t).letter_type, "ca-dmv-aps");
+  assert.equal(detectLetter("DEPARTMENT OF MOTOR VEHICLES. Administrative Per Se Suspension/Revocation Order. Driving under the influence. You may request a hearing.", t).letter_type, "ca-dmv-aps");
+  // Other suspensions have other rules and other deadlines.
+  for (const x of ["the DMV suspended my license for unpaid tickets", "DMV suspended my license because I have no insurance",
+    "the DMV says I have too many points, I'm a negligent operator", "DEPARTMENT OF MOTOR VEHICLES. Order of suspension. Failure to appear. You may request a hearing."])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-dmv-aps", x);
+});
+
+test("a hearing offer alone isn't a Social Security reconsideration", () => {
+  assert.equal(detectLetter("The county sent a letter. You may request a hearing about this decision.", "2026-09-16").letter_type, null);
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. If you disagree, you may request a hearing before an administrative law judge.", "2026-09-16").letter_type, "ssa-recon");
+});
+
+// ---- consumer: a debt collector's validation notice, and a car repossession notice -------------------------------
+test("debt validation: HEDGE with nothing to count; the notice prints the date to dispute by", () => {
+  const r = computeDeadline("debt-validation", undefined, "2026-09-16");
+  assert.equal(r.deadline, null);
+  assert.match(r.speech, /^A debt collector's validation notice prints a date to dispute the debt by\. Dispute in writing by that date if you can\. If the notice reached you late, you may have until 30 days after you got it\. If you don't think you owe it/);
+  assert.ok(r.sources.some(s => s.includes("1006.34(b)(5)")) && r.sources.some(s => s.includes("1692g")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("a debt collector sent me a letter and I don't owe this", t).letter_type, "debt-validation");
+  assert.equal(detectLetter("I got a letter from a collection agency", t).letter_type, "debt-validation");
+  assert.equal(detectLetter("This is a communication from a debt collector. Validation notice. You can dispute all or part of the debt by October 30, 2026.", t).letter_type, "debt-validation");
+  // A lawsuit over a debt is court papers, not a validation notice.
+  assert.equal(detectLetter("a debt collector sued me and I got a summons", t).letter_type, "ca-civil-summons");
+  // A government agency collecting its own debt isn't a debt collector's validation notice.
+  for (const x of ["the IRS sent me a collection notice", "the FTB collections unit sent me a letter", "EDD sent an overpayment collection notice",
+    "Social Security sent a collection letter about my overpayment", "the child support agency collections letter came", "the city changed my trash collection day"])
+    assert.notEqual(detectLetter(x, t).letter_type, "debt-validation", x);
+});
+
+test("repossession notice: redeem or reinstate for 15 days from mailing, 10 more on written request (Civil Code § 2983.2)", () => {
+  assert.equal(due("ca-repo-notice", "2026-09-15"), "2026-09-30");
+  const r = computeDeadline("ca-repo-notice", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^You can get the car back by paying off the contract, or sometimes by catching up on it, at least until Wednesday, September 30, 2026, 14 days from today\. Call the lender.*If you ask in writing before then, they have to add 10 more days, to Saturday, October 10, 2026 for a 15-day notice\./);
+  assert.ok(/20 days instead of 15, and 30 with the extension/.test(r.how_we_counted.join(" ")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("my car was repossessed and they sent a notice of intent to sell", t).letter_type, "ca-repo-notice");
+  assert.equal(detectLetter("they repo'd my truck", t).letter_type, "ca-repo-notice");
+  // § 2983.2 is for cars: not a license, benefits, a pawn, a home, a storage unit or furniture.
+  for (const x of ["I want to reinstate my driver's license", "how do I get my Medi-Cal reinstated", "I need to redeem my ring at the pawn shop",
+    "NOTICE OF TRUSTEE'S SALE. The trustee intends to sell your home at public auction.", "my rent-to-own furniture got repossessed",
+    "the storage unit sent a notice of intent to sell my things"]) assert.notEqual(detectLetter(x, t).letter_type, "ca-repo-notice", x);
+  assert.equal(detectLetter("NOTICE OF INTENT TO DISPOSE OF REPOSSESSED MOTOR VEHICLE. You may redeem the vehicle or reinstate the contract.", t).letter_type, "ca-repo-notice");
+});
+
+// ---- housing: a housing authority ending a voucher or a public housing lease --------------------------------------
+test("voucher termination: HEDGE with nothing to count; the notice prints the deadline to ask for a hearing (24 CFR 982.555)", () => {
+  const r = computeDeadline("hud-voucher-termination", undefined, "2026-09-16");
+  assert.equal(r.deadline, null);
+  assert.match(r.speech, /^When a housing authority ends your voucher because of something your family did or didn't do, or because you were away too long, the notice has to say why and give the deadline to ask for an informal hearing\. Ask the housing authority for an informal hearing by the date on the notice\./);
+  const t = "2026-09-16";
+  assert.equal(detectLetter("the housing authority is terminating my Section 8 voucher", t).letter_type, "hud-voucher-termination");
+  assert.equal(detectLetter("I'm losing my voucher", t).letter_type, "hud-voucher-termination");
+  assert.equal(detectLetter("HOUSING AUTHORITY. Notice of termination of assistance. Housing Choice Voucher program. You may request an informal hearing by October 1, 2026.", t).letter_type, "hud-voucher-termination");
+  assert.notEqual(detectLetter("my landlord is leaving Section 8", t).letter_type, "hud-voucher-termination");
+});
+
+test("public housing lease termination: at least 30 days for unpaid rent (24 CFR 966.4(l)(3)), HEDGE", () => {
+  assert.equal(due("hud-public-housing", "2026-09-15"), "2026-10-15");
+  const r = computeDeadline("hud-public-housing", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^For unpaid rent, your public housing lease can't end before Thursday, October 15, 2026, 29 days from today\. Ask about a grievance hearing/);
+  assert.ok(r.next_steps.some(s => /isn't an eviction order/.test(s)));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("public housing gave me a notice to end my lease", t).letter_type, "hud-public-housing");
+  for (const x of ["public housing sent a notice about pest control", "public housing is doing my annual recertification"])
+    assert.notEqual(detectLetter(x, t).letter_type, "hud-public-housing", x);
+  // The housing authority ending a voucher is its own letter now (tried before the owner's contract ending).
+  assert.equal(detectLetter("the housing authority is terminating my voucher", t).letter_type, "hud-voucher-termination");
+  for (const x of ["the housing authority is inspecting my unit next week", "the housing authority says my rent share is going up"])
+    assert.notEqual(detectLetter(x, t).letter_type, "hud-voucher-termination", x);
+  assert.equal(detectLetter("HOUSING AUTHORITY. Public housing lease termination notice. Failure to pay rent. You may request a grievance hearing.", t).letter_type, "hud-public-housing");
+});
+
+test("stack review: other programs' disability letters, decisions vs reconsiderations, missed dates, sold cars, the housing authority", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  const not = (x, id) => assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  // R1/R2: workers' comp, state disability, long-term disability through work and the VA aren't Social Security.
+  not("the judge denied my workers comp disability claim at the hearing", "ssa-appeals-council");
+  for (const x of ["my state disability is stopping", "my long term disability insurance through work is ending", "the VA is reducing my disability rating"])
+    not(x, "ssa-benefits-ending");
+  not("the VA denied my disability again", "ssa-recon");
+  is("EDD stopped my disability payments", "ca-edd-sdi");
+  for (const x of ["EDD denied my unemployment because I was on state disability before", "EDD denied my unemployment and told me to apply for disability instead"])
+    is(x, "ca-edd-determination");
+  is("Social Security says my retirement benefits are stopping", "ssa-benefits-ending");
+  // A sentence that names Social Security stays Social Security's, even when it mentions EDD too.
+  is("social security denied my disability and EDD cut off my SDI too", "ssa-initial");
+  assert.ok(computeDeadline("ssa-benefits-ending", "2026-09-13", "2026-09-14").next_steps.some(s => /For retirement, survivors or other benefits that aren't about disability, appealing doesn't keep payments going/.test(s)));
+  // R3: a reconsideration that mentions the Appeals Council is still a reconsideration; a hearing decision isn't.
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We found you are not disabled. If you disagree, request a hearing before an administrative law judge. If you then disagree with the hearing, you can ask the Appeals Council.", "ssa-recon");
+  is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", "ssa-appeals-council");
+  // The Oracle's verbatim reconsideration notice: "hearing decision" there is the next step, not this letter.
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. If you disagree, you may request a hearing before an administrative law judge. If you disagree with the hearing decision, you may ask the Appeals Council to review it.", "ssa-recon");
+  // …even when the decision mentions the reconsideration that came before it (the reconsideration bonus would win).
+  is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. After your reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
+  // R4: a missed traffic court date isn't a ticket to act on by its date.
+  for (const x of ["I missed my traffic court date", "I didn't go to court for my traffic ticket and now there's a fee"]) not(x, "ca-traffic-ticket");
+  // After the sale there's nothing to redeem: that's a deficiency.
+  for (const x of ["they repossessed my car and sold it and now I owe the difference", "my car was repossessed and sold at auction, they say I owe a deficiency"])
+    not(x, "ca-repo-notice");
+  // The housing authority as landlord isn't a utility; multi-word city utilities aren't private ones.
+  not("the housing authority is shutting off my water", "ca-water-shutoff");
+  not("the housing authority says they're turning off the power in my unit", "ca-utility-shutoff");
+  for (const x of ["the city of Palo Alto utilities is shutting off my electric", "City Utilities sent a disconnect notice for my power"]) not(x, "ca-utility-shutoff");
+  not("the city of San Luis Obispo utilities is shutting off my electric", "ca-utility-shutoff");
+  // The city pattern stays inside a name: a city mentioned elsewhere in the sentence doesn't exclude a private utility.
+  is("the city of Oakland told me the power company will shut off my power", "ca-utility-shutoff");
+  // A voucher ending with no one named goes to the housing authority's rule, which is tried first (a short hearing window).
+  is("my section 8 voucher contract is being terminated", "hud-voucher-termination");
+  assert.ok(SPOKEN_ORDER.indexOf("hud-voucher-termination") < SPOKEN_ORDER.indexOf("ca-subsidy-end"));
+  is("I got kicked off section 8", "hud-voucher-termination");
+  is("the hospital sent my bill to collections", "debt-validation");
+});
+
+test("the date answer with the letter known: a bill's due date looks back only for a rule counted from it", () => {
+  const t = "2026-09-30";
+  // The dialog's date turn: the answer alone has no letter in it, so the known letter comes along as letterType.
+  for (const x of ["the due date was August 1st", "it's due August 1st", "due date August 1st"]) {
+    assert.equal(detectLetter(x, t).suggested_notice_date, null, x);
+    assert.equal(detectLetter(x, t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01", x);
+  }
+  assert.equal(detectLetter("it's due October 5th", t, [], { letterType: "ssa-recon" }).suggested_notice_date, null);
 });
