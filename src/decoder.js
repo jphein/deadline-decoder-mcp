@@ -115,14 +115,18 @@ export function computeDeadline(letterType, noticeDate, today = todayIso()) {
 // resolves to the nearest such day on or after today, and is never offered as the notice date.
 const MONTH_NAMES = ["january","february","march","april","may","june","july","august","september","october","november","december"];
 const MONTH_RE = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
-const AHEAD = /\b(report(?:ing)?|appear|show up|hearing|court date|trial|due|until|before|starts?|starting|begins?|effective|goes up|go up|expires?|ends?|move out|vacate|next|coming)\b/gi;
-const BEHIND = /\b(dated|date on it|sent|mailed|got|received|came|arrived|served|handed|posted|taped|issued|printed|written|last)\b/gi;
-// Which cue is nearest before the date, in the same clause (up to 40 characters back): an ahead word, or a past
-// one ("my hearing notice dated September 3rd" is the letter's date: "dated" is nearer than "hearing").
-function isAhead(text, at) {
+const AHEAD = /\b(report(?:ing)?|appear|show up|hearing|court date|trial|due|until|before|starts?|starting|begins?|effective|goes up|go up|expires?|ends?|move out|vacate|next|coming|last day|deadline|going to|will be|shutting|disconnecting|cutting|turning)\b/gi;
+const BEHIND = /\b(dated|date on it|sent|mailed|got|received|came|arrived|served|handed|posted|taped|issued|printed|written|last(?! day)|(?:was|were) due)\b/gi;
+// A bill's due date is in the past once a shutoff notice comes: for a rule counted from it, "due" looks back.
+const AHEAD_PAST_DUE = new RegExp(AHEAD.source.replace("|due|", "|"), "gi");
+const BEHIND_PAST_DUE = new RegExp(BEHIND.source.replace("|dated|", "|dated|due(?: date)?|"), "gi");
+// Which cue ends nearest before the date, in the same clause (up to 40 characters back): an ahead word, or a past
+// one ("my hearing notice dated September 3rd" is the letter's date: "dated" is nearer than "hearing"). On a tie
+// the past one wins: "it was due August 1st" ("was due" and "due" end together) looked back.
+function isAhead(text, at, pastDue = false) {
   const clause = text.slice(Math.max(0, at - 40), at).split(/[.;!?]/).at(-1);
-  const last = re => { let m, i = -1; re.lastIndex = 0; while ((m = re.exec(clause))) i = m.index; return i; };
-  return last(AHEAD) > last(BEHIND);
+  const end = re => { let m, i = -1; re.lastIndex = 0; while ((m = re.exec(clause))) i = m.index + m[0].length; return i; };
+  return end(pastDue ? AHEAD_PAST_DUE : AHEAD) > end(pastDue ? BEHIND_PAST_DUE : BEHIND);
 }
 function monthIndex(word) { return MONTH_NAMES.findIndex(m => m.startsWith(word.toLowerCase().slice(0, 3))); }
 function resolve(month, day, today, ahead) {
@@ -133,14 +137,14 @@ function resolve(month, day, today, ahead) {
   }
   return null;
 }
-export function findSpokenDates(text, today = todayIso()) {
+export function findSpokenDates(text, today = todayIso(), { pastDue = false } = {}) {
   const now = d(today), out = [];
   const add = (at, isoStr, ahead) => { if (isoStr) out.push({ at, iso: isoStr, ahead }); };
   let m;
   const a = new RegExp(`\\b${MONTH_RE}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?!,?\\s*20\\d{2})`, "gi");
-  while ((m = a.exec(text))) { const ahead = isAhead(text, m.index); add(m.index, resolve(monthIndex(m[1]), +m[2], now, ahead), ahead); }
+  while ((m = a.exec(text))) { const ahead = isAhead(text, m.index, pastDue); add(m.index, resolve(monthIndex(m[1]), +m[2], now, ahead), ahead); }
   const b = new RegExp(`\\b(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+${MONTH_RE}\\b`, "gi");
-  while ((m = b.exec(text))) { const ahead = isAhead(text, m.index); add(m.index, resolve(monthIndex(m[2]), +m[1], now, ahead), ahead); }
+  while ((m = b.exec(text))) { const ahead = isAhead(text, m.index, pastDue); add(m.index, resolve(monthIndex(m[2]), +m[1], now, ahead), ahead); }
   const c = /\b(today|yesterday|tomorrow)\b/gi;
   while ((m = c.exec(text))) { const w = m[1].toLowerCase(); add(m.index, iso(addDays(now, w === "today" ? 0 : w === "yesterday" ? -1 : 1)), w === "tomorrow"); }
   return out;
@@ -172,7 +176,7 @@ export function detectLetter(text, today = todayIso(), among = []) {
   }
   const group = rule ? null : AMBIGUOUS.find(g => g.spoken.test(text));
   // A letter's own date is never after today: a date ahead of today (or said as an event) isn't offered as it.
-  const all = [...findDates(text), ...findSpokenDates(text, today)].sort((x, y) => x.at - y.at);
+  const all = [...findDates(text), ...findSpokenDates(text, today, { pastDue: rule?.anchor === "due" })].sort((x, y) => x.at - y.at);
   const past = all.filter(x => !x.ahead && x.iso <= today).map(x => x.iso);
   const dates = rule?.anchor === null ? [] : past;
   const ask = rule?.dateLabel ? (dates[0] ? `I see the date ${fmt(d(dates[0]))}. Is that the ${rule.dateLabel.toLowerCase()}?` : `What is the ${rule.dateLabel.toLowerCase()}?`) : "";

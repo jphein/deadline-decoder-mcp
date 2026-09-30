@@ -131,3 +131,20 @@ test("the help sentence reads as a sentence for every kind of letter", () => {
   assert.equal(computeDeadline("jury-summons", undefined, "2026-09-16").help_spoken,
     "For questions, call your court's jury office: the phone number and website are printed on your summons.");
 });
+
+test("date cues: 'last day' and 'shutting' look ahead, 'was due' looks back, and an undated rule takes no date", () => {
+  const t = "2026-09-30";
+  const at = (text) => findSpokenDates(text, t).map(x => x.iso);
+  assert.deepEqual(at("the last day to respond is October 5th"), ["2026-10-05"]);
+  assert.deepEqual(at("they are shutting it off October 5th"), ["2026-10-05"]);
+  assert.deepEqual(at("it was due August 1st"), ["2026-08-01"]);
+  assert.deepEqual(at("I got it last Tuesday, September 29th"), ["2026-09-29"]);
+  assert.equal(detectLetter("the last day to respond is October 5th", t).suggested_notice_date, null);
+  // A bill's due date is behind for a rule counted from it: only the rule knows, so the option says so.
+  assert.deepEqual(at("due date August 1st"), ["2027-08-01"]);
+  assert.deepEqual(findSpokenDates("due date August 1st", t, { pastDue: true }).map(x => x.iso), ["2026-08-01"]);
+  // An undated rule (a jury summons) offers no notice date, even one said as the letter's date.
+  const jury = detectLetter("I got a jury summons dated September 3rd", t);
+  assert.equal(jury.suggested_notice_date, null);
+  assert.deepEqual(jury.dates_found, ["2026-09-03"]);
+});
