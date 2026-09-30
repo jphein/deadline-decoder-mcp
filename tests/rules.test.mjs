@@ -306,3 +306,35 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
 });
+
+// ---- traffic: a traffic ticket, and a DMV suspension after a DUI arrest --------------------------------------------
+test("traffic ticket: HEDGE with nothing to count; the ticket or courtesy notice prints the date", () => {
+  const r = computeDeadline("ca-traffic-ticket", undefined, "2026-09-16");
+  assert.equal(r.deadline, null);
+  assert.match(r.speech, /^A traffic ticket prints its own date to appear by, and that's the date that counts, unless the court has given you a later one in writing\. Act by the appearance date on your ticket\./);
+  assert.ok(r.next_steps.some(s => /extends that date by 25 calendar days and sends the TR-205 form: file it and deposit the bail by the new date/.test(s)));
+  assert.ok(r.sources.some(s => s.includes("4.210(b)")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("I got a speeding ticket", t).letter_type, "ca-traffic-ticket");
+  assert.equal(detectLetter("the traffic court sent me a courtesy notice", t).letter_type, "ca-traffic-ticket");
+  assert.equal(detectLetter("I got a parking ticket", t).letter_type, "ca-parking-ticket");
+  assert.equal(detectLetter("SUPERIOR COURT OF CALIFORNIA. Traffic courtesy notice. Citation No. 0000. Vehicle Code 22350. Appearance date: October 20, 2026. Bail: $0.", t).letter_type, "ca-traffic-ticket");
+  assert.equal(detectLetter("I got a speeding ticket", t).needs_date, false);
+});
+
+test("DMV admin per se: 10 days from getting the notice to ask for a hearing (Vehicle Code § 13558), no roll", () => {
+  assert.equal(due("ca-dmv-aps", "2026-09-15"), "2026-09-25");
+  const r = computeDeadline("ca-dmv-aps", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^Your deadline is Friday, September 25, 2026, 9 days from today\. Ask the DMV for a hearing\./);
+  assert.match(r.how_we_counted[0], /^Received /);
+  assert.ok(r.next_steps.some(s => /hold the hearing and decide before the suspension starts, or put the suspension on hold/.test(s)) && r.sources.some(s => s.includes("(e)")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("the officer gave me a pink notice, the DMV is suspending my license", t).letter_type, "ca-dmv-aps");
+  assert.equal(detectLetter("I got a DUI and the DMV is taking my license", t).letter_type, "ca-dmv-aps");
+  assert.equal(detectLetter("DEPARTMENT OF MOTOR VEHICLES. Administrative Per Se Suspension/Revocation Order. Driving under the influence. You may request a hearing.", t).letter_type, "ca-dmv-aps");
+});
+
+test("a hearing offer alone isn't a Social Security reconsideration", () => {
+  assert.equal(detectLetter("The county sent a letter. You may request a hearing about this decision.", "2026-09-16").letter_type, null);
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. If you disagree, you may request a hearing before an administrative law judge.", "2026-09-16").letter_type, "ssa-recon");
+});
