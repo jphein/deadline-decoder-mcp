@@ -165,8 +165,10 @@ const families = new Set(RULES.map(r => r.family));
 const asked = FAMILY_ASK.filter(([f]) => families.has(f)).map(([, what]) => what);
 export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is it about ${asked.slice(0, -1).join(", ")}, or ${asked.at(-1)}?`;
 
-/** Which kind of letter is this? `among`: the candidate ids from a "which one?" question, to match the answer to. */
-export function detectLetter(text, today = todayIso(), among = []) {
+/** Which kind of letter is this? `among`: the candidate ids from a "which one?" question, to match the answer to.
+ *  `letterType`: the kind already identified, when this text answers "what's the date?", so the date is read the way
+ *  that letter's date is ("the due date was August 1st" looks back for a bill counted from its due date). */
+export function detectLetter(text, today = todayIso(), among = [], { letterType } = {}) {
   if (typeof text !== "string") throw new DecoderError("text must be a string");
   let rule = among.map(findRule).find(r => r.answers?.test(text)) ?? null;
   if (!rule) {
@@ -177,7 +179,8 @@ export function detectLetter(text, today = todayIso(), among = []) {
   }
   const group = rule ? null : AMBIGUOUS.find(g => g.spoken.test(text));
   // A letter's own date is never after today: a date ahead of today (or said as an event) isn't offered as it.
-  const all = [...findDates(text), ...findSpokenDates(text, today, { pastDue: rule?.anchor === "due" })].sort((x, y) => x.at - y.at);
+  const known = rule ?? (letterType ? findRule(letterType) : null);
+  const all = [...findDates(text), ...findSpokenDates(text, today, { pastDue: known?.anchor === "due" })].sort((x, y) => x.at - y.at);
   const past = all.filter(x => !x.ahead && x.iso <= today).map(x => x.iso);
   const dates = rule?.anchor === null ? [] : past;
   const ask = rule?.dateLabel ? (dates[0] ? `I see the date ${fmt(d(dates[0]))}. Is that the ${rule.dateLabel.toLowerCase()}?` : `What is the ${rule.dateLabel.toLowerCase()}?`) : "";

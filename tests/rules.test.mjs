@@ -589,3 +589,13 @@ test("stack review: other programs' disability letters, decisions vs reconsidera
   is("I got kicked off section 8", "hud-voucher-termination");
   is("the hospital sent my bill to collections", "debt-validation");
 });
+
+test("the date answer with the letter known: a bill's due date looks back only for a rule counted from it", () => {
+  const t = "2026-09-30";
+  // The dialog's date turn: the answer alone has no letter in it, so the known letter comes along as letterType.
+  for (const x of ["the due date was August 1st", "it's due August 1st", "due date August 1st"]) {
+    assert.equal(detectLetter(x, t).suggested_notice_date, null, x);
+    assert.equal(detectLetter(x, t, [], { letterType: "ca-water-shutoff" }).suggested_notice_date, "2026-08-01", x);
+  }
+  assert.equal(detectLetter("it's due October 5th", t, [], { letterType: "ssa-recon" }).suggested_notice_date, null);
+});
