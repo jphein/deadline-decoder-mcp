@@ -927,7 +927,8 @@ export const RULES = [
     must: /notice of default|foreclos\w*|behind on (my |the )?(mortgage|house payments?|home loan)|deed of trust/i,
     // Not a tenant whose landlord is being foreclosed on (a tenant has other rights and dates), and not a car, a
     // storage unit or a property-tax default.
-    not: /trustee'?s sale|notice of sale|auction|\b(car|vehicle|truck|storage|property tax(es)?|tax sale|landlord|tenant|I rent|renting|renter)\b/i,
+    // …and not an HOA's assessment-lien foreclosure (Civil Code § 5700 et seq. adds its own steps; not verified here).
+    not: /trustee'?s sale|notice of sale|auction|\b(car|vehicle|truck|storage|property tax(es)?|tax sale|landlord|tenant|I rent|renting|renter|HOA|homeowners'? association|assessment lien)\b/i,
     detect: [/notice of default|election to sell/i, /deed of trust|mortgage|trustee|beneficiary/i, /reinstat\w*|past due|default|foreclos\w*/i],
     spoken: /notice of default|foreclos\w*|behind on (my |the )?(mortgage|house payments?|home loan)/i,
     answers: /\b(default|mortgage|foreclos\w*|home loan)\b/i,
@@ -940,6 +941,7 @@ export const RULES = [
     ],
     help: [LSNC, LAWHELP, TWO11],
     sources: ["Civil Code § 2924(a)(2)–(4) (at least three months after the notice of default is filed before a notice of sale; the sale no earlier than three months and 20 days after it's recorded)",
+              "Civil Code § 2924c(b)(1) (the notice of default's own statement: no sale date may be set until approximately 90 days after it's recorded)",
               "Civil Code § 2924c(e) (reinstatement from the notice of default until five business days before the sale date in the recorded notice of sale)"],
   }),
   spec({
@@ -982,7 +984,7 @@ export const RULES = [
     // Being sued, not suing, and not collecting a judgment you won.
     // …and never an eviction (a UD needs a written response within 5 court days; small claims can't hear one), unless
     // it's a landlord suing for back rent or a deposit with no eviction word.
-    not: /\b(want(ed)? to sue|I('m| am)? (going to )?sue|I('m| am) suing|I sued|file (a|my) (small claims|claim)|won (my|the)|won't pay|collect(ing)? (my|the|a|on) judgment|collect on)\b|\b(unlawful detainer|UD)\b|^(?!.*\b(back rent|security deposit)\b).*\bevict\w*/is,
+    not: /\b(want(ed)? to sue|I('m| am)? (going to )?sue|I('m| am) suing|I sued|file (a|my) (small claims|claim)|I won(?!'t)|collect (my|the|on (a|my|the)) judgment)\b|\b(unlawful detainer|UD)\b|^(?!.*\b(back rent|security deposit)\b).*\bevict\w*/is,
     detect: [/small claims/i, /plaintiff'?s claim|SC-100|order to go to/i, /hearing|court date|trial date|defendant/i],
     spoken: /small claims/i,
     answers: /\bsmall claims\b/i,
@@ -990,7 +992,7 @@ export const RULES = [
     headline: "Go to the hearing on that date, with your witnesses and documents",
     steps: [
       "Go to the hearing on the date on the papers, and bring your witnesses and any documents that show your side.",
-      "If you can't go that day, ask the court in writing to postpone it, at least 10 days before the hearing if you can. Later, you can still ask, but you'll need a good reason. Mail or hand a copy to the other side the same day.",
+      "If you can't go that day, ask the court in writing to postpone it, at least 10 days before the hearing if you can. Later, you can still ask, but you'll need a good reason. Mail or hand a copy to each of the other parties the same day.",
       "The papers had to be served at least 15 days before the hearing, or 20 if you live in another county. If they came later, tell the court.",
     ],
     help: [SELFHELP, LAWHELP, TWO11],

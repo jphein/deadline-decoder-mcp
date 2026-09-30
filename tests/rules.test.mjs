@@ -789,7 +789,7 @@ test("foreclosure and small claims: HEDGE with nothing to count; the right peopl
   assert.match(computeDeadline("ca-foreclosure-sale", undefined, t).speech, /You can usually still catch up on the loan \(reinstate\) until 5 business days before that date\./);
   assert.ok(computeDeadline("ca-foreclosure-sale", undefined, t).sources.some(s => s.includes("2924c(e)")));
   const sc = computeDeadline("ca-small-claims", undefined, t);
-  assert.ok(sc.next_steps.some(s => /at least 10 days before the hearing if you can\. Later, you can still ask, but you'll need a good reason\. Mail or hand a copy to the other side the same day\./.test(s)) && sc.next_steps.some(s => /at least 15 days before the hearing, or 20/.test(s)));
+  assert.ok(sc.next_steps.some(s => /^If you can't go that day, ask the court in writing to postpone it, at least 10 days before the hearing if you can\. Later, you can still ask, but you'll need a good reason\. Mail or hand a copy to each of the other parties the same day\.$/.test(s)) && sc.next_steps.some(s => /at least 15 days before the hearing, or 20/.test(s)));
   is("I got a notice of default on my house", "ca-foreclosure-nod");
   is("NOTICE OF DEFAULT AND ELECTION TO SELL UNDER DEED OF TRUST. You may have the legal right to bring your account in good standing by paying all of your past due payments.", "ca-foreclosure-nod");
   is("I got a notice of trustee's sale", "ca-foreclosure-sale");
@@ -822,4 +822,18 @@ test("foreclosure and small claims: evictions stay evictions, tenants and other 
     "the IRS is going to auction my house", "the sheriff is auctioning my house for a judgment"]) not(x, "ca-foreclosure-sale");
   // A notice of default followed by a notice of sale is at the sale stage.
   is("I got a notice of default and now a notice of trustee's sale", "ca-foreclosure-sale");
+});
+
+test("small claims defendants, evictions, and HOA foreclosures", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  for (const x of ["my landlord filed an eviction, is that like small claims?", "I got eviction papers, not small claims"]) is(x, "ca-ud");
+  // Defendants who mention collecting, not paying or a judgment are still being sued.
+  for (const x of ["a collection agency is suing me in small claims", "my landlord is suing me in small claims because he says I won't pay for the damage",
+    "they're suing me in small claims and I'm afraid of a judgment", "a debt collector sued me in small claims"]) is(x, "ca-small-claims");
+  assert.notEqual(detectLetter("I won my small claims case and they won't pay", t).letter_type, "ca-small-claims");
+  // An HOA's assessment-lien foreclosure isn't answered by the deed-of-trust rule (not verified here).
+  for (const x of ["the HOA sent a notice of default on my condo", "my homeowners association is foreclosing on an assessment lien"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-foreclosure-nod", x);
+  assert.ok(computeDeadline("ca-foreclosure-nod", undefined, t).sources.some(s => s.includes("2924c(b)(1)")));
 });
