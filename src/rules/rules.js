@@ -725,10 +725,10 @@ export const RULES = [
     lead: "Your landlord can't make you pay more than your share of the rent through {date}",
     // The owner ending the contract, not the housing authority ending a family's assistance (a different letter,
     // with a short window to ask for a hearing), and not a rent increase for a tenant who has a voucher.
-    must: /^(?=.*(section 8|section eight|housing choice voucher|\bvoucher\b|\bHAP\b|housing assistance payment|subsid\w*|rent limitation))(?=.*\b(terminat\w*|not (renew|continu)\w*|won't renew|nonrenewal|opt(s|ing)? out|leav\w*|no longer (take|accept)\w*|end\w*)\b)/is,
+    must: /^(?=.*(section 8|section eight|housing choice voucher|\bvoucher\b|\bHAP\b|housing assistance payment|subsid\w*|rent limitation))(?=.*\b(leav\w* (section 8|section eight|the program)|opt(s|ing|ed)?[- ]out|not (renew|continu)\w*|won't renew|nonrenew\w*|no longer (take|accept)\w*|stop\w* (taking|accepting)|(terminat|end)\w* (the |my |its |our )?(section 8 |section eight |hap |subsidy |voucher |housing assistance payments? )?(contract|agreement)))/is,
     not: /\b(housing authority|PHA)\b|\bmy voucher\b.*\bterminat|\bterminat\w*\b.*\bmy voucher\b/i,
-    detect: [/section 8|housing choice voucher|\bvoucher\b|\bHAP\b|housing assistance payment|subsid\w*/i, /terminat\w*|not (renew|continu)\w*|nonrenewal|opt(ing)? out|end\w*/i, /\b(owner|landlord|contract|90 days|ninety)\b/i],
-    spoken: /^(?!.*\b(housing authority|pha)\b)(?!.*\bmy voucher\b.*\bterminat)(?!.*\bterminat\w*\b.*\bmy voucher\b)(?=.*\b(section 8|section eight|voucher|subsid\w*|housing assistance)\b)(?=.*\b(ending|end|stop\w*|leav\w*|not renew\w*|won't renew|opt\w* out|terminat\w*|no longer (take|accept)\w*)\b)/is,
+    detect: [/section 8|housing choice voucher|\bvoucher\b|\bHAP\b|housing assistance payment|subsid\w*/i, /leav\w* (section 8|section eight|the program)|opt(s|ing|ed)?[- ]out|not (renew|continu)\w*|won't renew|nonrenew\w*|no longer (take|accept)\w*|stop\w* (taking|accepting)|(terminat|end)\w* (the |my |its |our )?(section 8 |section eight |hap |subsidy |voucher |housing assistance payments? )?(contract|agreement)/i, /\b(owner|landlord|contract|90 days|ninety)\b/i],
+    spoken: /^(?!.*\b(housing authority|pha)\b)(?!.*\bmy voucher\b.*\bterminat)(?!.*\bterminat\w*\b.*\bmy voucher\b)(?=.*\b(section 8|section eight|voucher|subsid\w*|housing assistance)\b)(?=.*\b(leav\w* (section 8|section eight|the program)|opt(s|ing|ed)?[- ]out|not (renew|continu)\w*|won't renew|nonrenew\w*|no longer (take|accept)\w*|stop\w* (taking|accepting)|(terminat|end)\w* (the |my |its |our )?(section 8 |section eight |hap |subsidy |voucher |housing assistance payments? )?(contract|agreement)))/is,
     answers: /\b(section 8|section eight|voucher|subsid\w*)\b/i,
     keyterms: ["Section 8", "housing choice voucher", "subsidy contract"],
     headline: "Call your housing authority, and keep paying only your share of the rent",
@@ -858,6 +858,57 @@ export const RULES = [
     help: [LAWHELP, TWO11],
     sources: ["Civil Code § 2983.2(a) (at least 15 days' written notice before a repossessed car is sold; the right to redeem, and any right to reinstate, until 15 days from giving or mailing the notice, 20 if mailed from or to outside California; 10 more days on written request)"],
   }),
+  // ---- housing: a housing authority ending a voucher or a public housing lease -------------------------------------
+  spec({
+    id: "hud-voucher-termination",
+    family: "housing",
+    title: "A housing authority notice ending your Section 8 voucher (housing choice voucher)",
+    plain: "A letter from the housing authority saying it will stop your voucher's rent payments, with your right to an informal hearing.",
+    confidence: "HEDGE",
+    anchor: null,
+    count: null,
+    hedge: "When a housing authority ends your voucher because of something your family did or didn't do, or because you were away too long, the notice has to say why and give the deadline to ask for an informal hearing.",
+    must: /housing authority|\bPHA\b|housing choice voucher|section 8|\bvoucher\b/i,
+    not: /\b(landlord|owner)\b/i,
+    detect: [/housing authority|\bPHA\b/i, /housing choice voucher|section 8|\bvoucher\b|housing assistance/i, /terminat\w*|informal hearing|end\w*|stop\w*/i],
+    spoken: /^(?!.*\b(landlord|owner)\b)(?=.*\b(housing authority|pha|section 8|section eight|voucher)\b)(?=.*\b(terminat\w*|losing|lose|taking (away )?my|ending|end|stop\w*|cut\w* off|kick\w* me off)\b)/is,
+    answers: /\b(voucher|section 8|section eight|housing authority)\b/i,
+    keyterms: ["housing authority", "informal hearing", "housing choice voucher"],
+    headline: "Ask the housing authority for an informal hearing by the date on the notice",
+    steps: [
+      "Ask for the informal hearing right away, in writing if you can, and keep a copy. If the notice gives no deadline, or it looks wrong, get help right away.",
+      "For most reasons, the housing authority has to give you the chance for a hearing before it stops paying your rent share.",
+      "Keep paying your part of the rent while you wait, and ask legal aid to help you prepare.",
+    ],
+    help: [LSNC, LAWHELP, TWO11],
+    sources: ["24 CFR 982.555(a)(1)(iv)–(v) and (a)(2) (an informal hearing before the housing authority stops payments for a family's action or absence) and (c)(2) (the notice gives the reasons and the deadline to ask)"],
+  }),
+  spec({
+    id: "hud-public-housing",
+    family: "housing",
+    title: "Public housing: a notice ending your lease",
+    plain: "A housing authority's written notice ending a public housing lease, for example for unpaid rent.",
+    confidence: "HEDGE",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    dateQuestion: "What date is printed on the lease termination notice? You can say something like September 13th.",
+    count: { days: 30, unit: "calendar", roll: "none" },
+    lead: "For unpaid rent, your public housing lease can't end before {date}",
+    note: "This counts from the date on the notice, the earliest start. For some other reasons, such as a threat to others' safety or criminal activity, the notice can be shorter.",
+    must: /public housing/i,
+    detect: [/public housing/i, /housing authority|\bPHA\b/i, /terminat\w*|evict\w*|grievance|vacate|end\w* (your |the )?lease/i],
+    spoken: /^(?=.*\bpublic housing\b)(?=.*\b(evict\w*|terminat\w*|kick\w* (me )?out|end\w* (my |the )?lease|lease (is )?end\w*|move out)\b)/is,
+    answers: /\bpublic housing\b/i,
+    keyterms: ["public housing", "grievance hearing", "lease termination"],
+    headline: "Ask about a grievance hearing, and get free legal help",
+    steps: [
+      "The notice has to say why, and tell you about your right to reply, to see the housing authority's papers about it, and, if it applies, to ask for a grievance hearing. Ask for that in writing right away.",
+      "This notice isn't an eviction order. To evict you, the housing authority has to go to court, and you'll get court papers you can answer.",
+      "If it's about rent, ask whether a hardship exemption or a rent recalculation applies.",
+    ],
+    help: [LSNC, LAWHELP, TWO11],
+    sources: ["24 CFR 966.4(l)(3)(i) (a public housing lease termination notice: at least 30 days for unpaid rent; shorter for threats to health or safety, drug-related or violent criminal activity, or a felony) and (l)(3)(ii) (the notice states the grounds and the tenant's rights, including a grievance hearing when it applies)"],
+  }),
   // ---- taxes: the IRS -------------------------------------------------------------------------------------------
   spec({
     id: "irs-deficiency",
@@ -959,7 +1010,7 @@ export const RULES = [
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
   "ca-noa", "ca-edd-sdi", "ssa-overpayment", "ssa-benefits-ending", "ssa-appeals-council", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket", "ca-dmv-aps", "ca-traffic-ticket",
-  "ca-ftb-npa", "irs-deficiency", "irs-levy", "irs-cp2000", "ca-sheriff-vacate", "ca-subsidy-end", "ca-water-shutoff", "ca-utility-shutoff", "ca-repo-notice", "debt-validation", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
+  "ca-ftb-npa", "irs-deficiency", "irs-levy", "irs-cp2000", "hud-public-housing", "hud-voucher-termination", "ca-sheriff-vacate", "ca-subsidy-end", "ca-water-shutoff", "ca-utility-shutoff", "ca-repo-notice", "debt-validation", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

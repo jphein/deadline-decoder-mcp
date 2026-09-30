@@ -399,6 +399,8 @@ test("a subsidy contract ending: 90 days after you get the notice at your share 
   for (const x of ["the housing authority is terminating my voucher", "my voucher is being terminated", "HOUSING AUTHORITY. Notice of termination of assistance. Section 8 Housing Choice Voucher."])
     assert.notEqual(detectLetter(x, t).letter_type, "ca-subsidy-end", x);
   assert.notEqual(detectLetter("my landlord raised the rent and I am on Section 8", t).letter_type, "ca-subsidy-end");
+  // The landlord ending the tenancy of a tenant who has a voucher is a notice to move, not the contract ending.
+  assert.notEqual(detectLetter("my landlord is ending my lease and I have section 8", t).letter_type, "ca-subsidy-end");
 });
 
 // ---- utilities: electricity, gas and water shutoffs --------------------------------------------------------------
@@ -521,4 +523,32 @@ test("repossession notice: redeem or reinstate for 15 days from mailing, 10 more
     "NOTICE OF TRUSTEE'S SALE. The trustee intends to sell your home at public auction.", "my rent-to-own furniture got repossessed",
     "the storage unit sent a notice of intent to sell my things"]) assert.notEqual(detectLetter(x, t).letter_type, "ca-repo-notice", x);
   assert.equal(detectLetter("NOTICE OF INTENT TO DISPOSE OF REPOSSESSED MOTOR VEHICLE. You may redeem the vehicle or reinstate the contract.", t).letter_type, "ca-repo-notice");
+});
+
+// ---- housing: a housing authority ending a voucher or a public housing lease --------------------------------------
+test("voucher termination: HEDGE with nothing to count; the notice prints the deadline to ask for a hearing (24 CFR 982.555)", () => {
+  const r = computeDeadline("hud-voucher-termination", undefined, "2026-09-16");
+  assert.equal(r.deadline, null);
+  assert.match(r.speech, /^When a housing authority ends your voucher because of something your family did or didn't do, or because you were away too long, the notice has to say why and give the deadline to ask for an informal hearing\. Ask the housing authority for an informal hearing by the date on the notice\./);
+  const t = "2026-09-16";
+  assert.equal(detectLetter("the housing authority is terminating my Section 8 voucher", t).letter_type, "hud-voucher-termination");
+  assert.equal(detectLetter("I'm losing my voucher", t).letter_type, "hud-voucher-termination");
+  assert.equal(detectLetter("HOUSING AUTHORITY. Notice of termination of assistance. Housing Choice Voucher program. You may request an informal hearing by October 1, 2026.", t).letter_type, "hud-voucher-termination");
+  assert.notEqual(detectLetter("my landlord is leaving Section 8", t).letter_type, "hud-voucher-termination");
+});
+
+test("public housing lease termination: at least 30 days for unpaid rent (24 CFR 966.4(l)(3)), HEDGE", () => {
+  assert.equal(due("hud-public-housing", "2026-09-15"), "2026-10-15");
+  const r = computeDeadline("hud-public-housing", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^For unpaid rent, your public housing lease can't end before Thursday, October 15, 2026, 29 days from today\. Ask about a grievance hearing/);
+  assert.ok(r.next_steps.some(s => /isn't an eviction order/.test(s)));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("public housing gave me a notice to end my lease", t).letter_type, "hud-public-housing");
+  for (const x of ["public housing sent a notice about pest control", "public housing is doing my annual recertification"])
+    assert.notEqual(detectLetter(x, t).letter_type, "hud-public-housing", x);
+  // The housing authority ending a voucher is its own letter now (tried before the owner's contract ending).
+  assert.equal(detectLetter("the housing authority is terminating my voucher", t).letter_type, "hud-voucher-termination");
+  for (const x of ["the housing authority is inspecting my unit next week", "the housing authority says my rent share is going up"])
+    assert.notEqual(detectLetter(x, t).letter_type, "hud-voucher-termination", x);
+  assert.equal(detectLetter("HOUSING AUTHORITY. Public housing lease termination notice. Failure to pay rent. You may request a grievance hearing.", t).letter_type, "hud-public-housing");
 });
