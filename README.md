@@ -13,6 +13,9 @@ An [MCP](https://modelcontextprotocol.io) server (spec **2025-11-25**, **Streama
 | Medi-Cal / CalFresh Notice of Action | 90 days to request a state hearing (W&I Code § 10951) |
 | California court papers for a lawsuit (a Summons that isn't an eviction) | 30 days after service; a last day on a weekend or court holiday moves to the next court day (CCP §§ 412.20(a)(3), 12, 12a) |
 | A jury summons | **HEDGE**: the summons prints its own date to respond; postpone once or ask to be excused for hardship (CCP § 209; CRC rules 2.1004, 2.1008) |
+| California parking ticket | 21 calendar days from the date it was issued to ask for a free initial review (Veh. Code § 40215(a)) |
+| California late notice for a parking ticket | 14 calendar days from the mailing of the notice of delinquent parking violation (§ 40215(a)) |
+| California parking ticket review result | 21 calendar days from its mailing to ask for an administrative hearing; a deposit first, unless indigent (§§ 40215(b), 40220) |
 
 A bare "summons" or "court papers" is a question, not a guess: *"Is it about an eviction, a lawsuit about money, or jury duty?"*, and `detect_letter` matches the answer among those candidates.
 
@@ -34,7 +37,7 @@ Server instructions tell the assistant to always call `compute_deadline` rather 
 ```bash
 npm install
 npm start                      # MCP at http://127.0.0.1:8766/mcp, simulator at http://127.0.0.1:8766/
-npm test                       # 46 tests: rules, dates, the decoder and end-to-end MCP
+npm test                       # 49 tests: rules, dates, the decoder and end-to-end MCP
 ```
 
 Behind a reverse proxy: `HOST=0.0.0.0 ALLOWED_HOSTS=deadlines.example.org PORT=8766 npm start` (DNS-rebinding protection stays on for the listed hosts).
