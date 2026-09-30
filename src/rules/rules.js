@@ -420,6 +420,7 @@ export const RULES = [
     dateQuestion: "What's the mailing date on the notice? You can say something like September 13th.",
     count: { days: 30, unit: "calendar", roll: "none" },
     must: /\bEDD\b|employment development department|unemployment insurance/i,
+    not: /\b(disability insurance|state disability|SDI|paid family leave|PFL|DE 8517)\b/i,
     detect: [/\bEDD\b|employment development department/i, /notice of (determination|overpayment)|disqualif|ineligible|not eligible/i, /\b(appeal|unemployment insurance|DE 1000M)\b/i],
     spoken: /^(?=.*\b(edd|unemployment)\b)(?=.*\b(denied|disqualif\w*|not eligible|ineligible|stopped|cut off|turned (me )?down|determination|overpaid|overpayment|pay (it )?back)\b)/is,
     answers: /\b(edd|unemployment|jobless)\b/i,
@@ -434,6 +435,30 @@ export const RULES = [
     sources: ["Unemployment Insurance Code § 1328 (a determination: 30 days from service of the notice; extended for good cause)",
               "Unemployment Insurance Code § 1377 (a Notice of Overpayment: 30 days from the date it was mailed or served; extended for good cause)",
               "EDD, Unemployment Insurance Appeals (30 days from the mail date of the notice; form DE 1000M)"],
+  }),
+  spec({
+    id: "ca-edd-sdi",
+    family: "unemployment",
+    title: "EDD: State Disability Insurance or Paid Family Leave denied (a Notice of Determination)",
+    plain: "A letter from California's Employment Development Department saying you can't get disability (SDI) or Paid Family Leave benefits.",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 30, unit: "calendar", roll: "none" },
+    must: /\b(disability insurance|state disability|SDI|paid family leave|PFL|DE 8517)\b/i,
+    detect: [/\bEDD\b|employment development department/i, /\b(disability insurance|state disability|SDI|paid family leave|PFL)\b/i, /notice of determination|DE 8517|not eligible|ineligible|disqualif|\bappeal\b/i],
+    spoken: /^(?=.*\b(sdi|state disability|disability insurance|paid family leave|pfl|family leave)\b|.*\bedd\b.*\bdisability\b|.*\bdisability\b.*\bedd\b)(?=.*\b(denied|not eligible|ineligible|disqualif\w*|stopped|cut off|turned (me )?down|determination)\b)(?!.*\b(social security|ssi|ssdi)\b)/is,
+    answers: /\b(sdi|state disability|disability insurance|paid family leave|pfl|family leave)\b/i,
+    keyterms: ["State Disability Insurance", "SDI", "Paid Family Leave"],
+    note: "EDD counts the 30 days from the date the notice was issued.",
+    headline: "Appeal to an administrative law judge",
+    steps: [
+      "Appeal within 30 days of the date on the notice, online in myEDD or in writing. Online is fastest: mail can be postmarked later than the day you drop it off.",
+      "If you're late, appeal anyway and say why: the 30 days can be extended for good cause.",
+      "If your benefits come from your employer's own plan (a voluntary plan), the plan's letter says how to appeal. You still have the right to a hearing before a judge.",
+    ],
+    help: [EDD, LAWHELP, TWO11],
+    sources: ["Unemployment Insurance Code § 2707.2(a) (a disability determination: appeal to an administrative law judge within 30 days from service of the notice; extended for good cause)",
+              "EDD, State Disability Insurance Appeals (DI or PFL: appeal within 30 days of the date the notice was issued; a late appeal must give the reasons; a voluntary plan's denial can also be appealed to a hearing)"],
   }),
   // ---- benefits: a Medi-Cal health plan's appeal decision -----------------------------------------------------------
   spec({
@@ -617,12 +642,35 @@ export const RULES = [
     sources: ["IRS Tax Topic 652, Notice of underreported income, CP2000 (respond within 30 days of the date of the notice, 60 if outside the U.S.; otherwise a statutory notice of deficiency)",
               "IRS, Understanding your CP2000 notice (reply by the date listed; you can ask for more time)"],
   }),
+  spec({
+    id: "ca-ftb-npa",
+    family: "tax",
+    title: "California Franchise Tax Board: a Notice of Proposed Assessment",
+    plain: "A letter from California's Franchise Tax Board saying you owe more state income tax, and that you can protest it.",
+    anchor: "mailed",
+    dateLabel: "Date the notice was mailed (printed on it)",
+    count: { days: 60, unit: "calendar", roll: "none" },
+    must: /franchise tax board|\bFTB\b/i,
+    detect: [/franchise tax board|\bFTB\b/i, /proposed (deficiency )?assessment|\bNPA\b/i, /\bprotest\b|\b(60|sixty) days/i],
+    spoken: /^(?=.*\b(franchise tax( board)?|ftb|state tax(es)?|california tax(es)?)\b)(?=.*\b(proposed assessment|assessment|owe|bill|protest|more tax)\b)/is,
+    answers: /\b(franchise|ftb|state|california)\b/i,
+    keyterms: ["Franchise Tax Board", "Notice of Proposed Assessment", "protest"],
+    headline: "File a written protest with the Franchise Tax Board",
+    steps: [
+      "Protest in writing by this date, and say why you disagree. The notice also prints the last day to protest, and a protest filed by that date counts as on time.",
+      "If you don't protest in time, the proposed amount becomes final.",
+      "Get help if you can: some Low Income Taxpayer Clinics help with California tax too, free or low cost if you qualify. Ask when you call.",
+    ],
+    help: [LITC, LAWHELP, TWO11],
+    sources: ["Revenue and Taxation Code § 19041(a) (a written protest within 60 days after the notice is mailed) and (b) (a protest by the last date the notice specifies is timely)",
+              "Revenue and Taxation Code § 19042 (with no protest, the assessment becomes final when the 60 days end)"],
+  }),
 ];
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
-  "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
-  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
+  "ca-noa", "ca-edd-sdi", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
+  "ca-ftb-npa", "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

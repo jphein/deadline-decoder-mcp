@@ -306,3 +306,29 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
 });
+
+// ---- EDD disability and Paid Family Leave; the California Franchise Tax Board -------------------------------------
+test("EDD SDI/PFL: 30 days from the date on the notice (UIC § 2707.2), and not mistaken for unemployment or SSA", () => {
+  assert.equal(due("ca-edd-sdi", "2026-09-15"), "2026-10-15");
+  const t = "2026-09-30";
+  assert.equal(detectLetter("EDD denied my disability insurance claim", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("my paid family leave was denied", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EDD said my SDI was denied again", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EMPLOYMENT DEVELOPMENT DEPARTMENT. Notice of Determination (DE 8517). State Disability Insurance. You are not eligible for benefits. You may appeal.", t).letter_type, "ca-edd-sdi");
+  assert.equal(detectLetter("EDD denied my unemployment", t).letter_type, "ca-edd-determination");
+  assert.equal(detectLetter("Social Security denied my disability again", t).letter_type, "ssa-recon");
+  const r = computeDeadline("ca-edd-sdi", "2026-09-15", "2026-09-16");
+  assert.ok(r.next_steps.some(s => /voluntary plan/.test(s)) && r.sources.some(s => s.includes("2707.2")));
+});
+
+test("FTB Notice of Proposed Assessment: 60 days after mailing to protest (R&TC § 19041), no roll", () => {
+  assert.equal(due("ca-ftb-npa", "2026-09-15"), "2026-11-14");   // a Saturday: early is safe, and the notice prints its own last day
+  const t = "2026-09-30";
+  assert.equal(detectLetter("I got a notice of proposed assessment from the Franchise Tax Board", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("the FTB says I owe more state tax", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("FRANCHISE TAX BOARD. Notice of Proposed Assessment. If you disagree, file a written protest within 60 days.", t).letter_type, "ca-ftb-npa");
+  assert.equal(detectLetter("I got a letter from the IRS", t).letter_type, null);
+  const r = computeDeadline("ca-ftb-npa", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /File a written protest with the Franchise Tax Board/);
+  assert.ok(r.next_steps.some(s => /becomes final/.test(s)));
+});
