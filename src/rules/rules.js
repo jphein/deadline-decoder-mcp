@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*)\b)(?=.*\b(small claims|custody|divorce|restraining order|immigration|deportation|criminal|misdemeanor|felony|probation|parole|traffic|school|IEP|expulsion|IRS|internal revenue|lev(y|ies|ying)|garnish\w*|debt collector|collection agency|PG&E|utility|shut ?off)\b)|^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(unlawful detainer|eviction (summons|papers|notice|lawsuit|case)|(3|three)[- ]day notice|notice to (vacate|quit|pay rent))\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*|judge|ALJ)\b)(?=.*\bhearings?\b)|^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*)\b)(?=.*\b(small claims|custody|divorce|restraining order|immigration|deportation|criminal|misdemeanor|felony|probation|parole|traffic|school|IEP|expulsion|IRS|internal revenue|lev(y|ies|ying)|garnish\w*|debt collector|collection agency|PG&E|utility|shut ?off)\b)|^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(unlawful detainer|eviction (summons|papers|notice|lawsuit|case)|(3|three)[- ]day notice|notice to (vacate|quit|pay rent))\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice|reconsidered)\b|\b(again|second time|twice|reconsidered)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -483,7 +483,7 @@ export const RULES = [
     must: /appeals council|hearing decision|administrative law judge|\bALJ\b/i,
     // Another court's hearing that went against a caller on Social Security (custody, criminal, immigration…) isn't the
     // Appeals Council's, unless the text names a Social Security appeal.
-    not: /^(?!.*\b(appeals council|ALJ|administrative law judge|(disability|ssi|ssdi|social security) (claim|case|appeal|hearing)|(claim|case|appeal|hearing) (for|about) (my )?(disability|ssi|ssdi|social security))\b)(?=.*\b(custody|family court|criminal|bail|immigration|asylum|deport\w*|small claims|traffic court)\b)/is,
+    not: /^(?!.*\b(appeals council|ALJ|administrative law judge|(social security|ssa|ssi|ssdi|disability) judge|(disability|ssi|ssdi|social security) (claim|case|appeal|hearing)|(claim|case|appeal|hearing) (for|about) (my )?(disability|ssi|ssdi|social security))\b)(?=.*\b(custody|family court|criminal|bail|immigration|asylum|deport\w*|small claims|traffic court)\b)/is,
     detect: [/appeals council/i, /\b(hearing decision|administrative law judge|unfavorable|dismiss\w*)\b/i, /social security|supplemental security income|\bSSI\b/i],
     spoken: /\bappeals council\b|^(?=.*\b(social security|ssi|ssdi|disability)\b)(?=.*\b(judge|hearing|alj)\b)(?=.*\b(denied|lost|unfavorable|said no|turned (me )?down|against me|dismiss\w*)\b)/is,
     answers: /\b(judge|hearing|appeals council|decision)\b/i,
@@ -1023,7 +1023,9 @@ const EDD_FIRST = /^(?:(?!\b(?:social security|SSA|SSI|SSDI)\b).)*\b(EDD|employm
 const anyOf = (...res) => ({ test: (t) => res.some(re => re?.test(t)) });
 // Social Security said only as income ("I'm on SSI", "social security is my income") next to another agency or
 // program's decision (the DMV, the housing authority, the county, a landlord…) isn't a Social Security letter.
-const SS_AS_INCOME = /^(?=.*\b((I'?m|I am) on|I (get|receive)|I live on|is my income|my income is)\b)(?=.*\b(DMV|DUI|driver'?s license|housing authority|section 8|voucher|county|CalFresh|Medi-Cal|landlord|parking|repair|IRS|EDD)\b)/is;
+// Not when Social Security (or "they") is itself the one deciding, with the agency only the reason ("social security
+// says I was overpaid because of my EDD payments"); the window can't cross another agency's name.
+const SS_AS_INCOME = /^(?!.*\b(social security|SSA|SSI|SSDI|they)\b(?:(?!\b(DMV|county|landlord|housing authority|EDD|Medi-Cal|CalFresh|IRS|parking)\b).){0,20}\b(says?|said|denied|den(y|ies)|(is|are) (cutting|reducing|stopping|taking)|cut\w*|reduc\w*|stop\w*|overpa\w*|sent)\b)(?=.*\b((I'?m|I am) on|I (get|receive)|I live on|is my income|my income is)\b)(?=.*\b(DMV|DUI|driver'?s license|housing authority|section 8|voucher|county|CalFresh|Medi-Cal|landlord|parking|repair|IRS|EDD)\b)/is;
 for (const r of RULES) if (r.family === "ssa") r.not = anyOf(r.not, NOT_SSA, NOT_SSA_VA, EDD_FIRST, SS_AS_INCOME);
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").

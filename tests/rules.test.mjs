@@ -738,3 +738,25 @@ test("Social Security said as income, the county's hearing, and 'I haven't went 
   assert.equal(detectLetter("I'm on SSI and social security denied my disability again", t).letter_type, "ssa-recon");
   assert.equal(detectLetter("I haven't went yet", t, ["ssa-recon", "ssa-appeals-council"]).letter_type, "ssa-recon");
 });
+
+test("Social Security deciding (not just income), a Social Security judge, and cue-less hearing letters", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  // S1: Social Security (or "they") is the one deciding; the agency word is only the reason.
+  for (const [x, id] of [["I get SSDI and social security says I was overpaid because of my EDD payments", "ssa-overpayment"],
+    ["I'm on SSI and they are cutting it because I live with my landlord for free", "ssa-benefits-ending"],
+    ["I get SSI and social security is reducing my check because Medi-Cal pays my nursing home", "ssa-benefits-ending"],
+    ["I receive SSI and the county says I have too many resources, and social security denied me again", "ssa-recon"],
+    ["I'm on SSI and social security denied my disability again, the county said to appeal", "ssa-recon"]]) is(x, id);
+  // …while Social Security as income next to another agency's decision still keeps that agency's rule.
+  is("I'm on social security, the DMV denied my license after the DUI, I want a hearing", "ca-dmv-aps");
+  is("social security is my income and the housing authority denied my section 8, I want a hearing", "hud-voucher-termination");
+  is("my landlord gave me a 3 day notice, I'm on social security, do I get a hearing", "ca-3day");
+  // S2: a Social Security judge is a Social Security appeal, even with a custody case in the same breath.
+  for (const x of ["the social security judge denied me at the hearing, I also have a custody case",
+    "the social security judge ruled against me at my hearing, and now my ex wants custody"]) is(x, "ssa-appeals-council");
+  // A letter about a hearing to come, with no denial word and no judge, isn't guessed as a reconsideration.
+  for (const x of ["Social Security sent me a letter and I have a hearing coming up, what's my deadline", "I got a letter from social security about a hearing"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ssa-recon", x);
+  assert.deepEqual(detectLetter("I have a hearing with the disability judge next month", t).candidates, ["ssa-recon", "ssa-appeals-council"]);
+});
