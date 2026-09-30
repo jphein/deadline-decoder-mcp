@@ -367,3 +367,36 @@ test("FTB Notice of Proposed Assessment: 60 days after mailing to protest (R&TC 
   assert.match(r.speech, /File a written protest with the Franchise Tax Board/);
   assert.ok(r.next_steps.some(s => /becomes final/.test(s)));
 });
+
+// ---- housing: the sheriff's Notice to Vacate, and a subsidy contract ending ------------------------------------------
+test("sheriff's Notice to Vacate: 5 days from service, no mailing extension, a weekend last day rolls (CCP §§ 715.020, 12a)", () => {
+  assert.equal(due("ca-sheriff-vacate", "2026-09-15"), "2026-09-21");   // day 5 is Sunday the 20th: CCP § 12a moves it to Monday
+  const t = "2026-09-16";
+  const r = computeDeadline("ca-sheriff-vacate", "2026-09-15", t);
+  assert.match(r.speech, /^You have until Monday, September 21, 2026 to move out, 5 days from today\. After that, the sheriff can lock you out\. Call free legal aid today about asking the court for more time\./);
+  assert.ok(r.next_steps.some(s => /Mailing doesn't add days/.test(s)) && r.sources.some(s => s.includes("684.120")));
+  assert.equal(detectLetter("the sheriff posted a notice to vacate on my door", t).letter_type, "ca-sheriff-vacate");
+  // A landlord's lockout threat isn't a sheriff's notice: a lockout needs a judgment and the sheriff (Civil Code § 789.3).
+  for (const x of ["they're going to lock me out", "my landlord says he is going to lock me out", "my landlord threatened to lock me out if I do not pay"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-sheriff-vacate", x);
+  assert.equal(detectLetter("the sheriff is coming to lock me out on Monday", t).letter_type, "ca-sheriff-vacate");
+  assert.equal(due("ca-sheriff-vacate", "2026-11-06"), "2026-11-12");   // day 5 is Veterans Day, Wed Nov 11: the next court day
+  assert.equal(detectLetter("SHERIFF'S DEPARTMENT. NOTICE TO VACATE. Writ of Possession of Real Property. You must vacate within five days.", t).letter_type, "ca-sheriff-vacate");
+  assert.deepEqual(detectLetter("my landlord gave me a notice to vacate", t).candidates, ["ca-30day-notice", "ca-60day-notice"]);
+});
+
+test("a subsidy contract ending: 90 days after you get the notice at your share of the rent (Civil Code § 1954.535)", () => {
+  assert.equal(due("ca-subsidy-end", "2026-09-15"), "2026-12-14");
+  const r = computeDeadline("ca-subsidy-end", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^Your landlord can't make you pay more than your share of the rent through Monday, December 14, 2026, 89 days from today\./);
+  assert.match(r.how_we_counted[0], /^Received /);
+  assert.ok(r.sources.some(s => s.includes("65863.10")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("my landlord is leaving Section 8", t).letter_type, "ca-subsidy-end");
+  assert.equal(detectLetter("the owner won't renew the voucher contract", t).letter_type, "ca-subsidy-end");
+  assert.equal(detectLetter("NOTICE OF NONRENEWAL. The owner will not renew the Housing Assistance Payments contract (Section 8). This notice gives you 90 days.", t).letter_type, "ca-subsidy-end");
+  // The housing authority ending a family's voucher is a different letter; so is a rent increase for a tenant on Section 8.
+  for (const x of ["the housing authority is terminating my voucher", "my voucher is being terminated", "HOUSING AUTHORITY. Notice of termination of assistance. Section 8 Housing Choice Voucher."])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-subsidy-end", x);
+  assert.notEqual(detectLetter("my landlord raised the rent and I am on Section 8", t).letter_type, "ca-subsidy-end");
+});
