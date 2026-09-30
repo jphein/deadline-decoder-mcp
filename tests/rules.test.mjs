@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, a shutoff notice, a debt collector or a repossessed car, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a traffic or parking ticket, or the DMV, a shutoff notice, a debt collector or a repossessed car, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -620,6 +620,7 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   is("social security denied my disability and EDD cut off my SDI too", "ssa-initial");
   // O2: a city named in the sentence isn't a city utility's name; "Water and Power" is.
   is("the city of Oakland said power will be cut off", "ca-utility-shutoff");
+  is("the city of Oakland said power will be cut off for my building", "ca-utility-shutoff");
   not("Glendale Water and Power is disconnecting my electric", "ca-utility-shutoff");
   // n2: refusing the breath test is an admin per se suspension.
   is("I refused the breathalyzer and the DMV is suspending my license", "ca-dmv-aps");
