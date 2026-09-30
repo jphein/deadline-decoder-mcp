@@ -201,8 +201,8 @@ export const RULES = [
     id: "ca-ud",
     family: "housing", confidence: "SOLID", anchor: "served",
     spoken: /\beviction papers\b|unlawful detainer|\b(filed|filing|file) (an |the )?eviction\b|\bsu(ed|ing) (me )?to evict|\b(summons|court papers)\b.*\b(evict\w*|landlord|rent|tenant)\b|\b(evict\w*|landlord|rent)\b.*\b(summons|court papers)\b/i,
-    // "UD" only in capitals and not ending a sentence, so "ud" inside other words or a sentence-final "UD." isn't it.
-    spokenCase: /\bUD\b(?!\.)/,
+    // "UD" only in capitals (so "ud" inside other words, or Spanish "Ud.", isn't it); a sentence-final "UD." is.
+    spokenCase: /\bUD\b/,
     answers: /\b(evict\w*|landlord|rent|tenant|apartment|housing|move out)\b/i,
     keyterms: ["unlawful detainer", "eviction", "summons"],
     title: "California: court papers for an eviction (Summons, unlawful detainer)",
@@ -962,7 +962,7 @@ export const RULES = [
     // § 5715 redemption step.
     not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted|landlord|tenant|I rent|renting|renter|notice to vacate|IRS|internal revenue|sheriff|(for|to collect) a judgment|judgment (lien|creditor)|writ of execution)\b/i,
     detect: [/trustee'?s sale|notice of sale/i, /deed of trust|trustee|beneficiary|mortgage/i, /auction|public sale|sale date|highest bidder/i],
-    spoken: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction(ing)? (off )?my (house|home|condo|unit)|sell(ing)? my (house|home|condo|unit) at (an )?auction|auction date for my (house|home|condo|unit)/i,
+    spoken: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction(ing)? (off )?my (house|home|condo)|sell(ing)? my (house|home|condo) at (an )?auction|auction date for my (house|home|condo)/i,
     answers: /\b(sale|auction|trustee)\b/i,
     keyterms: ["Notice of Trustee's Sale", "trustee sale", "reinstate"],
     headline: "Call a housing counselor or legal aid today",

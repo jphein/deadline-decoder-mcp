@@ -871,7 +871,10 @@ test("an HOA's foreclosure: the deed-of-trust rules answer, with the § 5715 red
 test("after #20: 'UD' in capitals, the ask hears ssa-recon's own cues, and 'they denied me again'", () => {
   const t = "2026-09-30";
   assert.equal(detectLetter("I got a UD", t).letter_type, "ca-ud");
-  assert.notEqual(detectLetter("I got a UD.", t).letter_type, "ca-ud");
+  for (const x of ["I got a UD.", "My landlord served me a UD."]) assert.equal(detectLetter(x, t).letter_type, "ca-ud", x);
+  assert.notEqual(detectLetter("¿Puede Ud. ayudarme con una carta?", t).letter_type, "ca-ud");
+  // A storage renter's unit isn't a home under a trustee's sale.
+  assert.notEqual(detectLetter("they're auctioning off my unit, I owe rent on it", t).letter_type, "ca-foreclosure-sale");
   for (const x of ["social security says I'm not disabled and I have a hearing", "social security rejected my claim twice and I have a hearing"])
     assert.deepEqual(detectLetter(x, t).candidates, ["ssa-recon", "ssa-appeals-council"], x);
   assert.equal(detectLetter("I'm on SSI and they denied me again, the county told me to appeal", t).letter_type, "ssa-recon");
