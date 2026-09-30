@@ -879,3 +879,24 @@ test("after #20: 'UD' in capitals, the ask hears ssa-recon's own cues, and 'they
     assert.deepEqual(detectLetter(x, t).candidates, ["ssa-recon", "ssa-appeals-council"], x);
   assert.equal(detectLetter("I'm on SSI and they denied me again, the county told me to appeal", t).letter_type, "ssa-recon");
 });
+
+test("small claims papers from a debt collector are small claims, not a validation notice", () => {
+  const t = "2026-09-30";
+  for (const x of ["I got small claims papers from a debt collector", "a debt collector sued me in small claims", "the collection agency is suing me in small claims court"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-small-claims", x);
+  assert.equal(detectLetter("I got a letter from a debt collector", t).letter_type, "debt-validation");
+});
+
+test("a validation notice's small-claims boilerplate, a collector's threat, and a time-barred disclosure stay validation notices", () => {
+  const t = "2026-09-30";
+  for (const x of ["This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. This debt may be eligible for small claims.",
+    "a debt collector sent me a letter saying they might take me to small claims",
+    "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. If you are sued in small claims court, you may have defenses.",
+    "This is a communication from a debt collector. Validation notice. The law limits how long you can be sued on a debt. Because of the age of your debt, we will not sue you for it."])
+    assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
+  // An actual suit still isn't.
+  assert.equal(detectLetter("a debt collector sued me and I got a summons", t).letter_type, "ca-civil-summons");
+  // A threat to sue isn't small claims papers.
+  for (const x of ["they might take me to small claims", "my landlord is threatening to sue me in small claims"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-small-claims", x);
+});
