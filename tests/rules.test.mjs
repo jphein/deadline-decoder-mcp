@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -173,4 +173,61 @@ test("parking: a ticket, a late notice and a review result are told apart", () =
   assert.equal(detectLetter("NOTICE OF PARKING VIOLATION. Citation No. 12345. Penalty due by 10/22/2026. To contest, request an initial review.", t).letter_type, "ca-parking-ticket");
   assert.equal(detectLetter("NOTICE OF DELINQUENT PARKING VIOLATION. Parking citation unpaid; late penalties added.", t).letter_type, "ca-parking-delinquent");
   assert.equal(detectLetter("Results of your initial review: the parking citation stands. You may request an administrative hearing within 21 days.", t).letter_type, "ca-parking-review");
+});
+
+// ---- benefits ----------------------------------------------------------------------------------------------------
+test("SSA overpayment: 60 days after the presumed receipt, rolled like the other SSA rules, plus the 30-day date", () => {
+  assert.equal(due("ssa-overpayment", "2026-09-13"), "2026-11-17");
+  assert.equal(due("ssa-overpayment", "2026-11-14"), "2027-01-19");       // day 60 is Martin Luther King Jr. Day, 2027
+  const r = computeDeadline("ssa-overpayment", "2026-09-13", "2026-09-20");
+  assert.deepEqual(r.also.map(a => [a.date, a.passed]), [["2026-10-13", false]]);
+  assert.match(r.speech, /For Social Security benefits \(not SSI\), ask by Tuesday, October 13, 2026, 30 days after the date on the notice, and they won't start taking money back while they decide\. Here's how I counted\. Notice dated Sunday, September 13, 2026\. Social Security assumes you got it 5 days later: Friday, September 18, 2026\./);
+  assert.ok(r.next_steps.some(s => /SSI .* within 10 days/.test(s)) && r.sources.some(s => s.includes("416.1336(b)")));
+});
+
+test("EDD: 30 calendar days from the mailing date, never rolled", () => {
+  assert.equal(due("ca-edd-determination", "2026-09-15"), "2026-10-15");
+  assert.equal(due("ca-edd-determination", "2026-10-01"), "2026-10-31");  // a Saturday, left as it is
+  assert.match(computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-20").speech, /Mailed Tuesday, September 15, 2026\. 30 days from that date: Thursday, October 15, 2026\. EDD counts the 30 days from the mailing date on the notice\. First step/);
+  // a day that doesn't roll says so, instead of passing itself off as final
+  assert.match(computeDeadline("ca-edd-determination", "2026-10-01", "2026-10-02").speech, /Saturday, October 31, 2026\. That's a Saturday\. Don't count on extra time: act before then\./);
+  assert.match(computeDeadline("ca-edd-determination", "2026-10-02", "2026-10-03").speech, /Sunday, November 1, 2026\. That's a Sunday\. Don't count on extra time/);
+  assert.match(computeDeadline("ca-edd-determination", "2026-10-12", "2026-10-13").speech, /Wednesday, November 11, 2026\. That's Veterans Day\. Don't count on extra time/);
+  assert.doesNotMatch(computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-16").speech, /extra time/);   // a Thursday says nothing
+  const src = computeDeadline("ca-edd-determination", "2026-09-15", "2026-09-20").sources;
+  assert.ok(src.some(s => s.includes("§ 1328")) && src.some(s => s.includes("§ 1377")));   // determinations, and overpayments
+});
+
+test("Medi-Cal health plan: 60 days to appeal a denial to the plan, then 120 days after its appeal decision", () => {
+  assert.equal(due("ca-medi-cal-plan", "2026-09-01"), "2026-12-30");
+  assert.ok(computeDeadline("ca-medi-cal-plan", "2026-09-01", "2026-09-02").sources.some(s => s.includes("438.408(f)(2)")));
+  assert.equal(due("ca-medi-cal-plan-denial", "2026-09-01"), "2026-10-31");  // a Saturday, left as it is
+  const t = "2026-10-01";
+  assert.equal(detectLetter("my Medi-Cal health plan denied my surgery", t).letter_type, "ca-medi-cal-plan-denial");
+  assert.equal(detectLetter("my Medi-Cal plan won't cover my medicine", t).letter_type, "ca-medi-cal-plan-denial");
+  assert.equal(detectLetter("Your Medi-Cal managed care health plan: NOTICE OF ADVERSE BENEFIT DETERMINATION. You may appeal within 60 days.", t).letter_type, "ca-medi-cal-plan-denial");
+  assert.ok(computeDeadline("ca-noa", "2026-09-01", "2026-09-02").next_steps.some(s => /health plan rather than the county, you usually appeal to the plan first, within 60 days/.test(s)));
+});
+
+test("Notice of Action: the hearing date, and how to keep benefits the same while you wait (no date promised)", () => {
+  const r = computeDeadline("ca-noa", "2026-09-01", "2026-09-02");
+  assert.equal(r.deadline, "2026-11-30");
+  // the cutoff is the effective date on the notice, which can come sooner than 10 days, so no computed day is offered
+  assert.deepEqual(r.also.map(a => [a.date, a.confidence]), [[null, "HEDGE"]]);
+  assert.match(r.speech, /Ask for a state hearing\. You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect\. That date is printed on the notice, usually at least 10 days after it, so ask right away\. Here's how I counted/);
+  assert.doesNotMatch(r.speech, /is safe/);
+  assert.equal(r.letter_title, "Medi-Cal, CalFresh or CalWORKs: a Notice of Action");
+});
+
+test("benefits: an SSA overpayment, an EDD notice and a Medi-Cal plan decision are recognized", () => {
+  const t = "2026-10-01";
+  assert.equal(detectLetter("Social Security says they overpaid me and I have to pay it back", t).letter_type, "ssa-overpayment");
+  assert.equal(detectLetter("I got a letter from EDD saying I'm not eligible for unemployment", t).letter_type, "ca-edd-determination");
+  assert.equal(detectLetter("EDD says I was overpaid on unemployment", t).letter_type, "ca-edd-determination");
+  assert.equal(detectLetter("my Medi-Cal health plan denied my appeal", t).letter_type, "ca-medi-cal-plan");
+  assert.equal(detectLetter("the county says my Medi-Cal is ending", t).letter_type, "ca-noa");
+  assert.equal(detectLetter("SOCIAL SECURITY ADMINISTRATION. Notice of Overpayment. We paid you $1,200 too much. You may ask for reconsideration or a waiver.", t).letter_type, "ssa-overpayment");
+  assert.equal(detectLetter("Employment Development Department. Notice of Determination. You are disqualified. To appeal, use form DE 1000M.", t).letter_type, "ca-edd-determination");
+  assert.equal(detectLetter("NOTICE OF APPEAL RESOLUTION. Your Medi-Cal managed care health plan upheld its decision. You may ask for a State Hearing.", t).letter_type, "ca-medi-cal-plan");
+  assert.equal(detectLetter("I got a letter from Social Security dated September 13th, they denied my disability again", t).letter_type, "ssa-recon");
 });
