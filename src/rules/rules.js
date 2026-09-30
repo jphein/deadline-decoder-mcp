@@ -39,7 +39,7 @@ export const ROLL = {
   dc: { ok: isDcBusinessDay, next: "business day" },
 };
 // The date each kind of rule counts from, as the first counting step says it.
-export const ANCHORS = { notice: "Notice dated", served: "Served", issued: "Issued", mailed: "Mailed" };
+export const ANCHORS = { notice: "Notice dated", served: "Served", issued: "Issued", mailed: "Mailed", due: "The bill was due" };
 const WORDS = ["zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
 /** Count a rule's days from its anchor date. Returns the last day, the uncorrected last day, and what moved it. */
@@ -548,6 +548,61 @@ export const RULES = [
     sources: ["Civil Code § 827(b) (30 days' notice for an increase of 10 percent or less over the past 12 months, 90 days for more; 5 more days if mailed, Code of Civil Procedure § 1013)",
               "Civil Code § 1947.12(a)(1) (for many rentals, no more than 5 percent plus the change in the cost of living, or 10 percent, whichever is lower, in 12 months)"],
   }),
+  // ---- utilities: shutoff notices -------------------------------------------------------------------------------
+  spec({
+    id: "ca-utility-shutoff",
+    family: "utilities",
+    title: "California: a notice that your electricity or gas will be shut off for an unpaid bill",
+    plain: "A past-due or disconnection notice from PG&E, Southern California Edison, SoCalGas, SDG&E or another private energy company.",
+    confidence: "HEDGE",
+    anchor: "mailed",
+    dateLabel: "Date the notice was mailed (printed on it)",
+    count: { days: 15, unit: "calendar", roll: "none" },
+    lead: "A private utility can't shut off your service before {date}",
+    note: "A private utility has to mail the notice at least 15 days before a shutoff, so this is the earliest a shutoff can happen, not the day it will. City and district utilities have their own notice rules.",
+    must: /shut ?off|disconnect\w*|terminat\w* (of )?(your )?service|past due|turn(ing)? off/i,
+    not: /\bwater\b/i,
+    detect: [/PG&E|pacific gas|edison|socalgas|SDG&E|\b(electric\w*|gas|energy|power)\b/i, /shut ?off|disconnect\w*|terminat\w*|past due|48[- ]hour/i, /\b(notice|pay|payment|arrangement|balance)\b/i],
+    spoken: /^(?=.*\b(pg&e|pg and e|pge|edison|socalgas|sdg&e|electric\w*|power|gas|lights|utility|utilities)\b)(?=.*\b(shut\w* off|shutoff|disconnect\w*|turn\w* off|cut\w* off|past due)\b)(?!.*\bwater\b)/is,
+    answers: /\b(power|electric\w*|gas|pg&e|pge|edison|utility)\b/i,
+    keyterms: ["PG&E", "disconnection notice", "shutoff notice"],
+    headline: "Call the utility before that date and ask for a payment arrangement",
+    steps: [
+      "Call the utility before that date. Ask for a payment arrangement, and ask whether any programs lower your bill (such as CARE).",
+      "If someone in your home has a serious medical condition, say so and ask whether medical protections apply.",
+      "Before shutting it off, the utility has to try to reach you by phone or in person at least 24 hours ahead, or leave a notice at least 48 hours ahead.",
+    ],
+    help: [TWO11, LAWHELP],
+    sources: ["Public Utilities Code § 779.1(a) (no shutoff for nonpayment without a mailed notice at least 10 days ahead; the 10 days start 5 days after it's mailed) and (b) (a try by phone or in person at least 24 hours ahead, or a notice at least 48 hours ahead)"],
+  }),
+  spec({
+    id: "ca-water-shutoff",
+    family: "utilities",
+    title: "California: a notice that your water will be shut off for an unpaid bill",
+    plain: "A past-due or shutoff notice from your water system about a home's water bill.",
+    confidence: "HEDGE",
+    anchor: "due",
+    dateLabel: "Date the unpaid bill was due",
+    dateQuestion: "When was the unpaid water bill due? You can say something like August 1st.",
+    count: { days: 60, unit: "calendar", roll: "none" },
+    lead: "Most water systems can't shut off your water before {date}",
+    note: "This counts from the due date, so it's the earliest possible date: the 60 days run from when the bill became late, which may be a little later. It covers city water and most water companies and districts: since August 2024, any community water system (15 or more homes, or 25 year-round residents). A very small system may differ.",
+    must: /\bwater\b/i,
+    detect: [/\bwater\b/i, /shut ?off|disconnect\w*|discontinu\w*|terminat\w*|past due|delinquen\w*/i, /\b(notice|pay|payment|bill|balance)\b/i],
+    spoken: /^(?=.*\bwater\b)(?=.*\b(shut\w* off|shutoff|disconnect\w*|turn\w* off|cut\w* off|past due|discontinu\w*)\b)/is,
+    answers: /\bwater\b/i,
+    keyterms: ["water shutoff", "discontinuation of service"],
+    headline: "Call the water system and ask about a payment plan",
+    steps: [
+      "Call the water system before that date. Ask for a payment plan, and ask how to ask for a bill review or appeal if the bill looks wrong.",
+      "At least 7 business days before a shutoff, the water system has to contact you by phone or in writing.",
+      "If three things are true, the water system must offer you a payment arrangement instead of shutting off your water: a doctor or other primary care provider certifies that a shutoff would seriously threaten the health of someone who lives there, you can't pay within the normal billing cycle (for example, someone gets Medi-Cal, CalFresh, CalWORKs, SSI or WIC), and you agree to a payment plan. Keep up with the plan and your new bills to stay protected.",
+    ],
+    help: [TWO11, LAWHELP],
+    sources: ["Health and Safety Code § 116908(a)(1) (a covered water system can't shut off a home's service until a payment is at least 60 days late, and must contact the customer at least 7 business days before; the notice gives the date to pay or make an arrangement)",
+              "Health and Safety Code § 116910(a) (no shutoff when a primary care provider certifies a serious threat to health, the customer can't pay in the normal billing cycle, and agrees to a payment plan) and (b) (the system offers a payment option; falling behind on it can lead to a shutoff 5 business days after a posted final notice)",
+              "Health and Safety Code §§ 116902 and 116904 (covered water systems, including every community water system from August 1, 2024) and 116275(i) (a community water system: at least 15 service connections or 25 yearlong residents)"],
+  }),
   // ---- taxes: the IRS -------------------------------------------------------------------------------------------
   spec({
     id: "irs-deficiency",
@@ -625,7 +680,7 @@ export const RULES = [
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
   "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
-  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
+  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-water-shutoff", "ca-utility-shutoff", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

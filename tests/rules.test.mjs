@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, a shutoff notice, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -305,4 +305,28 @@ test("housing notices are recognized, and a notice to vacate asks 30 or 60", () 
   const q = detectLetter("I got a notice to vacate", t);
   assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
   assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
+});
+
+// ---- utilities: electricity, gas and water shutoffs --------------------------------------------------------------
+test("energy shutoff: no shutoff before 15 days after the notice is mailed (PUC § 779.1), HEDGE", () => {
+  assert.equal(due("ca-utility-shutoff", "2026-09-15"), "2026-09-30");
+  const r = computeDeadline("ca-utility-shutoff", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^A private utility can't shut off your service before Wednesday, September 30, 2026, 14 days from today\. Call the utility before that date/);
+  assert.ok(r.next_steps.some(s => /24 hours ahead, or leave a notice at least 48 hours ahead/.test(s)));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("PG&E sent a notice they're shutting off my power", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("my gas is going to be turned off", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("PACIFIC GAS AND ELECTRIC. 15-Day Notice. Your electric service may be disconnected for a past due balance. Call us to make a payment arrangement.", t).letter_type, "ca-utility-shutoff");
+});
+
+test("water shutoff: no shutoff before a bill is 60 days late (H&SC § 116908), HEDGE, and never read as power", () => {
+  assert.equal(due("ca-water-shutoff", "2026-08-01"), "2026-09-30");
+  const r = computeDeadline("ca-water-shutoff", "2026-08-01", "2026-09-16");
+  assert.match(r.speech, /^Most water systems can't shut off your water before Wednesday, September 30, 2026, 14 days from today\./);
+  assert.match(r.how_we_counted[0], /^The bill was due Saturday, August 1, 2026\./);
+  assert.ok(r.next_steps.some(s => /7 business days/.test(s)) && r.sources.some(s => s.includes("116904")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("they're turning off my water", t).letter_type, "ca-water-shutoff");
+  assert.equal(detectLetter("CITY WATER DEPARTMENT. Notice of discontinuation of water service. Your account is past due.", t).letter_type, "ca-water-shutoff");
+  assert.equal(detectLetter("the utility says it will shut off my water", t).letter_type, "ca-water-shutoff");
 });

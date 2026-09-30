@@ -155,7 +155,7 @@ function detectSpoken(text) {
 
 // What each family of letters is about, for "which kind is it?" (in this order, when the family has rules).
 const FAMILY_ASK = [["ssa", "Social Security"], ["housing", "your rent or your home"], ["court", "a court case or jury duty"],
-  ["traffic", "a parking ticket"], ["unemployment", "unemployment benefits"], ["tax", "taxes or the IRS"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
+  ["traffic", "a parking ticket"], ["utilities", "a shutoff notice"], ["unemployment", "unemployment benefits"], ["tax", "taxes or the IRS"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
 const families = new Set(RULES.map(r => r.family));
 const asked = FAMILY_ASK.filter(([f]) => families.has(f)).map(([, what]) => what);
 export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is it about ${asked.slice(0, -1).join(", ")}, or ${asked.at(-1)}?`;
