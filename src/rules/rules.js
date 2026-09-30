@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*(\b(at|after) (my|the) hearing\b.{0,40}\b(lost|denied|ruled|said no|turned (me )?down|against me)\b|\b(lost|ruled against me|said no|turned me down)\b (at|after) (my|the) hearing\b)|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -141,7 +141,7 @@ export const RULES = [
   },
   {
     id: "ssa-initial",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*(\b(at|after) (my|the) hearing\b.{0,40}\b(lost|denied|ruled|said no|turned (me )?down|against me)\b|\b(lost|ruled against me|said no|turned me down)\b (at|after) (my|the) hearing\b)|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi)\b.*\b(denied|turned (me )?down|rejected|said no)\b|\b(denied|turned down|rejected)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(first|denied|application|turned down)\b/i,
     keyterms: ["Social Security", "SSI", "SSDI", "disability"],
@@ -482,7 +482,7 @@ export const RULES = [
     mailWho: "Social Security",
     must: /appeals council|hearing decision|administrative law judge|\bALJ\b/i,
     detect: [/appeals council/i, /\b(hearing decision|administrative law judge|unfavorable|dismiss\w*)\b/i, /social security|supplemental security income|\bSSI\b/i],
-    spoken: /\bappeals council\b|^(?=.*\b(social security|ssi|ssdi|disability)\b)(?=.*\b(judge|hearing|alj)\b)(?=.*\b(denied|lost|unfavorable|said no|against me|dismiss\w*)\b)/is,
+    spoken: /\bappeals council\b|^(?=.*\b(social security|ssi|ssdi|disability)\b)(?=.*\b(judge|hearing|alj)\b)(?=.*\b(denied|lost|unfavorable|said no|turned (me )?down|against me|dismiss\w*)\b)/is,
     answers: /\b(judge|hearing|appeals council|decision)\b/i,
     keyterms: ["Appeals Council", "hearing decision"],
     headline: "Ask the Appeals Council to review the decision",
@@ -1028,6 +1028,19 @@ export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3d
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.
 export const AMBIGUOUS = [
+  // A Social Security denial that mentions a hearing, with no decision in it: before the hearing it's a
+  // reconsideration's step (ask for a hearing), after it the Appeals Council's. Both give 60 days plus 5; only the
+  // step differs, and tense is hard to hear, so the line asks. `preempt`: asked before the rules are tried.
+  // `unless`: not when the reconsideration rule's own exclusions fire (a judge's decision, a Notice of Decision,
+  // another program), not on a Notice of Reconsideration or an initial denial, which say which letter they are.
+  { preempt: true,
+    spoken: /^(?=.*\b(social security|ssi|ssdi|disability)\b)(?=.*\bhearings?\b)/is,
+    unless: (t) => RULES.find(r => r.id === "ssa-recon").not.test(t) || /notice of reconsideration|notice of disapproved claim|\b(initial|first) (determination|denial|decision)\b|(ask|request)( for)? (a )?reconsideration/i.test(t),
+    candidates: ["ssa-recon", "ssa-appeals-council"],
+    question: "Have you already had your hearing with a judge?",
+    // Tried in order, before each rule's own `answers`: a "not yet" first, so "no, I haven't had it" isn't read as "had it".
+    answers: [["ssa-recon", /^\W*(no|nope|not yet)\b|\b(not yet|haven'?t|have not|hasn'?t|has not|scheduled|set for|coming( up)?|waiting|next (week|month))\b/i],
+              ["ssa-appeals-council", /^\W*(yes|yeah|yep|i did)\b|\b(already|had it|had (my|the) hearing|went to (it|the hearing|my hearing)|the judge|lost|ruled|it was)\b/i]] },
   { spoken: /\bsummons\b|\bcourt papers\b/i, candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
     question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
   { spoken: /notice to (vacate|move out|terminate)|terminat\w* (of )?(my |the )?tenancy|move[- ]out notice|telling me to move out/i, candidates: ["ca-30day-notice", "ca-60day-notice"],

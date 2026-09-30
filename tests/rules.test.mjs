@@ -613,15 +613,29 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   is("SOCIAL SECURITY ADMINISTRATION. After your notice of reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
   // n1: a hearing that went against you is the Appeals Council's step.
   is("the Social Security judge ruled against me at my hearing", "ssa-appeals-council");
-  // …but a hearing offered, scheduled or mentioned as the next step is a reconsideration's.
+  // A Notice of Reconsideration says which letter it is, even when it mentions the hearing to come.
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We still find you are not disabled. If you disagree after the hearing, you may ask the Appeals Council.", "ssa-recon");
-  is("Social Security denied me again and the judge said I can have a hearing", "ssa-recon");
-  is("Social Security denied me again after the hearing was scheduled", "ssa-recon");
-  // Only a past outcome at or after a hearing is a decision; asking about a hearing, or one still to come, isn't.
-  for (const x of ["social security denied me again, what do I say at my hearing", "social security denied me again, after the hearing gets scheduled what happens",
-    "social security denied me again and my hearing is scheduled", "social security denied me again and the hearing was postponed"]) is(x, "ssa-recon");
-  for (const x of ["I lost after the hearing, social security denied my disability", "after my hearing social security said no again",
-    "they said no at my hearing for social security"]) is(x, "ssa-appeals-council");
+  // With no decision in it, a denial that mentions a hearing is asked about: had the hearing yet? (Both answers give
+  // 60 days plus 5; only the next step differs.)
+  const ASK = ["ssa-recon", "ssa-appeals-council"];
+  for (const x of ["Social Security denied me again and the judge said I can have a hearing", "Social Security denied me again after the hearing was scheduled",
+    "social security denied me again, what do I say at my hearing", "social security denied me again, after the hearing gets scheduled what happens",
+    "social security denied me again and my hearing is scheduled", "social security denied me again and the hearing was postponed",
+    "I lost after the hearing, social security denied my disability", "after my hearing social security said no again", "they said no at my hearing for social security",
+    "what do I say at my hearing if social security denied me again", "social security denied me again and I need help at the hearing because they denied me twice",
+    "they turned me down at the hearing, social security disability"]) {
+    const q = detectLetter(x, t);
+    assert.equal(q.letter_type, null, x); assert.deepEqual(q.candidates, ASK, x);
+    assert.equal(q.speech, "Have you already had your hearing with a judge?", x);
+  }
+  // The answers, both ways, including the ones that could be misread.
+  for (const [a, id] of [["yes", "ssa-appeals-council"], ["yeah, I already had it", "ssa-appeals-council"], ["the judge said no", "ssa-appeals-council"],
+    ["I lost", "ssa-appeals-council"], ["no", "ssa-recon"], ["not yet", "ssa-recon"], ["no, I haven't had it", "ssa-recon"],
+    ["it's scheduled for next month", "ssa-recon"], ["I'm still waiting", "ssa-recon"]])
+    assert.equal(detectLetter(a, t, ASK).letter_type, id, a);
+  // A printed initial denial isn't asked about a hearing: it says what it is. (Which SSA rule its scoring picks is
+  // outside this change.)
+  assert.deepEqual(detectLetter("SOCIAL SECURITY ADMINISTRATION. Notice of Disapproved Claim. We found you are not disabled. If you disagree, you may request reconsideration; a hearing comes later.", t).candidates, []);
   // n3: an SSI initial determination is titled "Notice of Decision".
   is("SOCIAL SECURITY ADMINISTRATION. Supplemental Security Income. Notice of Decision. You are not eligible for SSI. If you disagree, you may ask for reconsideration within 60 days.", "ssa-initial");
   // S1: a sentence that leads with EDD is EDD's; one that leads with Social Security stays Social Security's.

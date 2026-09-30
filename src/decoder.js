@@ -170,14 +170,19 @@ export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is 
  *  that letter's date is ("the due date was August 1st" looks back for a bill counted from its due date). */
 export function detectLetter(text, today = todayIso(), among = [], { letterType } = {}) {
   if (typeof text !== "string") throw new DecoderError("text must be a string");
-  let rule = among.map(findRule).find(r => r.answers?.test(text)) ?? null;
-  if (!rule) {
+  // A question with its own answers (the hearing ask) is matched by those first, in order.
+  const asked = among.length ? AMBIGUOUS.find(g => g.answers && g.candidates.length === among.length && g.candidates.every(c => among.includes(c))) : null;
+  const heard = asked?.answers.find(([, re]) => re.test(text))?.[0];
+  let rule = heard ? findRule(heard) : among.map(findRule).find(r => r.answers?.test(text)) ?? null;
+  // A question asked before the rules are tried (the hearing ask), when nothing in the text settles it.
+  const pre = rule || among.length ? null : AMBIGUOUS.find(g => g.preempt && g.spoken.test(text) && !g.unless?.(text));
+  if (!rule && !pre) {
     // A printed initial denial names "reconsideration" as the next step, so the printed detector
     // can't hear "denied *again*"; the spoken detector can, and wins in that one case.
     const printed = detect(text), spoken = detectSpoken(text);
     rule = printed?.id === "ssa-initial" && spoken?.id === "ssa-recon" ? spoken : (printed ?? spoken);
   }
-  const group = rule ? null : AMBIGUOUS.find(g => g.spoken.test(text));
+  const group = pre ?? (rule ? null : AMBIGUOUS.find(g => !g.preempt && g.spoken.test(text)));
   // A letter's own date is never after today: a date ahead of today (or said as an event) isn't offered as it.
   const known = rule ?? (letterType ? findRule(letterType) : null);
   const all = [...findDates(text), ...findSpokenDates(text, today, { pastDue: known?.anchor === "due" })].sort((x, y) => x.at - y.at);
