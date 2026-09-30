@@ -955,8 +955,9 @@ export const RULES = [
     hedge: "A Notice of Trustee's Sale prints the date the home will be sold. You can usually still catch up on the loan (reinstate) until 5 business days before that date.",
     must: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction/i,
     // Not a car, storage, pawn or tax sale; not a tenant (a tenant after a foreclosure sale has other rights and dates);
-    // not an IRS or sheriff's sale for a judgment (not a § 2924 trustee's sale).
-    not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted|landlord|tenant|I rent|renting|renter|notice to vacate|IRS|internal revenue|sheriff|(for|to collect) a judgment|judgment (lien|creditor)|writ of execution)\b/i,
+    // not an IRS or sheriff's sale for a judgment (not a § 2924 trustee's sale); not an HOA's assessment-lien sale, as on
+    // the Notice of Default rule (Civil Code § 5700 et seq. adds its own steps; not verified here).
+    not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted|landlord|tenant|I rent|renting|renter|notice to vacate|IRS|internal revenue|sheriff|(for|to collect) a judgment|judgment (lien|creditor)|writ of execution|HOA|homeowners'? association|assessment lien)\b/i,
     detect: [/trustee'?s sale|notice of sale/i, /deed of trust|trustee|beneficiary|mortgage/i, /auction|public sale|sale date|highest bidder/i],
     spoken: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction(ing)? (off )?my (house|home)|sell(ing)? my (house|home) at (an )?auction|auction date for my (house|home)/i,
     answers: /\b(sale|auction|trustee)\b/i,

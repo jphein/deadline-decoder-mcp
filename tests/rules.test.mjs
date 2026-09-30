@@ -852,3 +852,10 @@ test("after #19: a printed 'no deficiency judgment', curly apostrophes, 'a UD', 
   // A cue-less hearing that names another court, from a caller on SSI, isn't asked (H4).
   assert.deepEqual(detectLetter("I'm on SSI and I have a small claims hearing", t).candidates, []);
 });
+
+test("an HOA's assessment-lien sale isn't answered by the trustee's-sale rule either", () => {
+  const t = "2026-09-30";
+  for (const x of ["the HOA is auctioning my condo for unpaid assessments", "NOTICE OF TRUSTEE'S SALE under a notice of delinquent assessment. The homeowners association will sell at public auction to the highest bidder."])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-foreclosure-sale", x);
+  assert.equal(detectLetter("I got a notice of trustee's sale", t).letter_type, "ca-foreclosure-sale");
+});
