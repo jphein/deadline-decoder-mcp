@@ -10,7 +10,10 @@ An [MCP](https://modelcontextprotocol.io) server (spec **2025-11-25**, **Streama
 | Social Security: denied again (reconsideration) | same counting, request a hearing (20 CFR 404.933) |
 | California 3-day notice to pay rent or quit | 3 **court** days; weekends and judicial holidays excluded (CCP § 1161(2), AB 2343) |
 | California eviction court papers (unlawful detainer) | 10 court days to respond (CCP § 1167, AB 2347, eff. 2025) |
-| Medi-Cal / CalFresh Notice of Action | 90 days to request a state hearing (W&I Code § 10951) |
+| Medi-Cal / CalFresh / CalWORKs Notice of Action | 90 days to request a state hearing (W&I Code § 10951); to keep benefits the same while you wait, ask before the action takes effect, at least 10 days after the notice (42 CFR 431.211, 431.230(a); 7 CFR 273.13(a)(1), 273.15(k)(1)) |
+| Medi-Cal health plan: appeal denied (Notice of Appeal Resolution) | 120 calendar days to request a state hearing (W&I Code § 10951) |
+| Social Security: overpayment | 60 days from receipt to ask for reconsideration (receipt presumed 5 days after the notice date; weekend/holiday rollover); for Social Security benefits, asking within 30 days of the notice date stops recovery while SSA decides (20 CFR 404.502a, 404.506(c)); SSI payments continue on an appeal within 10 days of receipt (20 CFR 416.1336(b)) |
+| EDD: Notice of Determination or Notice of Overpayment (unemployment) | 30 days from the mail date to appeal, extended for good cause (Unemp. Ins. Code § 1328) |
 | California court papers for a lawsuit (a Summons that isn't an eviction) | 30 days after service; a last day on a weekend or court holiday moves to the next court day (CCP §§ 412.20(a)(3), 12, 12a) |
 | A jury summons | **HEDGE**: the summons prints its own date to respond; postpone once or ask to be excused for hardship (CCP § 209; CRC rules 2.1004, 2.1008) |
 | California parking ticket | 21 calendar days from the date it was issued to ask for a free initial review (Veh. Code § 40215(a)) |
@@ -37,7 +40,7 @@ Server instructions tell the assistant to always call `compute_deadline` rather 
 ```bash
 npm install
 npm start                      # MCP at http://127.0.0.1:8766/mcp, simulator at http://127.0.0.1:8766/
-npm test                       # 49 tests: rules, dates, the decoder and end-to-end MCP
+npm test                       # 54 tests: rules, dates, the decoder and end-to-end MCP
 ```
 
 Behind a reverse proxy: `HOST=0.0.0.0 ALLOWED_HOSTS=deadlines.example.org PORT=8766 npm start` (DNS-rebinding protection stays on for the listed hosts).
