@@ -182,7 +182,9 @@ export function detectLetter(text, today = todayIso(), among = [], { letterType 
     const printed = detect(text), spoken = detectSpoken(text);
     rule = printed?.id === "ssa-initial" && spoken?.id === "ssa-recon" ? spoken : (printed ?? spoken);
   }
-  const group = pre ?? (rule ? null : AMBIGUOUS.find(g => !g.preempt && g.spoken.test(text)));
+  // An answer to a question with its own answers that settles nothing ("I don't know") is asked again. (The older
+  // questions, whose candidates answer through their rules, keep falling through as before.)
+  const group = pre ?? (rule ? null : asked ?? AMBIGUOUS.find(g => !g.preempt && g.spoken.test(text)));
   // A letter's own date is never after today: a date ahead of today (or said as an event) isn't offered as it.
   const known = rule ?? (letterType ? findRule(letterType) : null);
   const all = [...findDates(text), ...findSpokenDates(text, today, { pastDue: known?.anchor === "due" })].sort((x, y) => x.at - y.at);

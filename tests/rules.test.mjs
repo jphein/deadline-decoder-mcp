@@ -631,8 +631,18 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
   // The answers, both ways, including the ones that could be misread.
   for (const [a, id] of [["yes", "ssa-appeals-council"], ["yeah, I already had it", "ssa-appeals-council"], ["the judge said no", "ssa-appeals-council"],
     ["I lost", "ssa-appeals-council"], ["no", "ssa-recon"], ["not yet", "ssa-recon"], ["no, I haven't had it", "ssa-recon"],
-    ["it's scheduled for next month", "ssa-recon"], ["I'm still waiting", "ssa-recon"]])
+    ["it's scheduled for next month", "ssa-recon"], ["I'm still waiting", "ssa-recon"],
+    ["yes, I had it last month", "ssa-appeals-council"], ["no, not yet", "ssa-recon"], ["it's next week", "ssa-recon"]])
     assert.equal(detectLetter(a, t, ASK).letter_type, id, a);
+  // "I don't know" settles nothing, so the question comes again.
+  const again = detectLetter("I don't know", t, ASK);
+  assert.equal(again.letter_type, null); assert.deepEqual(again.candidates, ASK); assert.equal(again.speech, "Have you already had your hearing with a judge?");
+  // dd9's sentences: asked (never the Appeals Council directly); and one said after the hearing, never recon directly.
+  for (const x of ["after the hearing was scheduled social security denied me again", "I have to show up at my hearing because they denied me again, social security",
+    "what happens at my hearing if social security denied me twice", "at my hearing next month can I say they denied me unfairly, social security",
+    "social security denied me after my hearing"]) assert.deepEqual(detectLetter(x, t).candidates, ASK, x);
+  // A Notice of Reconsideration that mentions losing at a hearing still says which letter it is (the title guard).
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We still find you are not disabled. Many people who lost at the hearing ask the Appeals Council; first you may request a hearing before an administrative law judge.", "ssa-recon");
   // A printed initial denial isn't asked about a hearing: it says what it is. (Which SSA rule its scoring picks is
   // outside this change.)
   assert.deepEqual(detectLetter("SOCIAL SECURITY ADMINISTRATION. Notice of Disapproved Claim. We found you are not disabled. If you disagree, you may request reconsideration; a hearing comes later.", t).candidates, []);
