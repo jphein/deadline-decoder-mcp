@@ -153,13 +153,14 @@ export function findSpokenDates(text, today = todayIso(), { pastDue = false } = 
 // How people *say* it, as opposed to what the letter prints: each rule's `spoken` pattern, tried in
 // SPOKEN_ORDER (most specific first). Used when the printed-letter detector finds nothing, or to hear "denied again".
 function detectSpoken(text) {
-  for (const id of SPOKEN_ORDER) { const r = RULES.find(x => x.id === id); if (r?.spoken?.test(text)) return r; }
+  // A rule's `not` (the letters it must never claim) applies to what people say, too.
+  for (const id of SPOKEN_ORDER) { const r = RULES.find(x => x.id === id); if (r?.spoken?.test(text) && !r.not?.test(text)) return r; }
   return null;
 }
 
 // What each family of letters is about, for "which kind is it?" (in this order, when the family has rules).
 const FAMILY_ASK = [["ssa", "Social Security"], ["housing", "your rent or your home"], ["court", "a court case or jury duty"],
-  ["traffic", "a parking ticket"], ["unemployment", "unemployment benefits"], ["tax", "taxes or the IRS"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
+  ["traffic", "a parking ticket"], ["utilities", "a shutoff notice"], ["unemployment", "unemployment benefits"], ["tax", "taxes or the IRS"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
 const families = new Set(RULES.map(r => r.family));
 const asked = FAMILY_ASK.filter(([f]) => families.has(f)).map(([, what]) => what);
 export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is it about ${asked.slice(0, -1).join(", ")}, or ${asked.at(-1)}?`;

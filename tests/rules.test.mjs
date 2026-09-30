@@ -145,7 +145,7 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, a shutoff notice, unemployment benefits, taxes or the IRS, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
 });
 
@@ -399,4 +399,54 @@ test("a subsidy contract ending: 90 days after you get the notice at your share 
   for (const x of ["the housing authority is terminating my voucher", "my voucher is being terminated", "HOUSING AUTHORITY. Notice of termination of assistance. Section 8 Housing Choice Voucher."])
     assert.notEqual(detectLetter(x, t).letter_type, "ca-subsidy-end", x);
   assert.notEqual(detectLetter("my landlord raised the rent and I am on Section 8", t).letter_type, "ca-subsidy-end");
+});
+
+// ---- utilities: electricity, gas and water shutoffs --------------------------------------------------------------
+test("energy shutoff: no shutoff before 15 days after the notice is mailed (PUC § 779.1), HEDGE", () => {
+  assert.equal(due("ca-utility-shutoff", "2026-09-15"), "2026-09-30");
+  const r = computeDeadline("ca-utility-shutoff", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^A private utility can't shut off your service before Wednesday, September 30, 2026, 14 days from today\. Call the utility before that date/);
+  assert.ok(r.next_steps.some(s => /24 hours ahead, or leave a notice at least 48 hours ahead/.test(s)));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("PG&E sent a notice they're shutting off my power", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("my gas is going to be turned off", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("PACIFIC GAS AND ELECTRIC. 15-Day Notice. Your electric service may be disconnected for a past due balance. Call us to make a payment arrangement.", t).letter_type, "ca-utility-shutoff");
+});
+
+test("water shutoff: no shutoff before a bill is 60 days late (H&SC § 116908), HEDGE, and never read as power", () => {
+  assert.equal(due("ca-water-shutoff", "2026-08-01"), "2026-09-30");
+  const r = computeDeadline("ca-water-shutoff", "2026-08-01", "2026-09-16");
+  assert.match(r.speech, /^Most water systems can't shut off your water before Wednesday, September 30, 2026, 14 days from today\./);
+  assert.match(r.how_we_counted[0], /^The bill was due Saturday, August 1, 2026\./);
+  assert.ok(r.next_steps.some(s => /7 business days/.test(s)) && r.sources.some(s => s.includes("116904")));
+  const t = "2026-09-16";
+  assert.equal(detectLetter("they're turning off my water", t).letter_type, "ca-water-shutoff");
+  assert.equal(detectLetter("CITY WATER DEPARTMENT. Notice of discontinuation of water service. Your account is past due.", t).letter_type, "ca-water-shutoff");
+  assert.equal(detectLetter("the utility says it will shut off my water", t).letter_type, "ca-water-shutoff");
+});
+
+test("shutoffs: gas vs water, no roll, HEDGE, the due-date answer, and the letters they must never claim", () => {
+  const t = "2026-09-30";
+  // A gas shutoff that mentions hot water is a gas shutoff (15 days), not a water shutoff (60).
+  assert.equal(detectLetter("SoCalGas is shutting off my gas and I won't have hot water", t).letter_type, "ca-utility-shutoff");
+  assert.equal(detectLetter("they're turning off the gas and my water heater won't work", t).letter_type, "ca-utility-shutoff");
+  // No roll: a Sunday stays a Sunday (early is safe). Both are HEDGE.
+  assert.equal(due("ca-utility-shutoff", "2026-09-19"), "2026-10-04");
+  assert.equal(due("ca-water-shutoff", "2026-08-05"), "2026-10-04");
+  assert.equal(rule("ca-utility-shutoff").confidence, "HEDGE");
+  assert.equal(rule("ca-water-shutoff").confidence, "HEDGE");
+  // The answer to "when was the bill due?" looks back.
+  assert.equal(detectLetter("water shutoff, it was due August 1st", t).suggested_notice_date, "2026-08-01");
+  assert.equal(detectLetter("my water is getting shut off, the due date was the 1st of August", t).suggested_notice_date, "2026-08-01");
+  // Never: a past-due bill with no shutoff, a landlord (Civil Code § 789.3), a safety outage, a city or district
+  // utility, propane.
+  const never = { "ca-utility-shutoff": ["my PG&E bill is past due", "PG&E. Your balance is past due. Please pay by October 15.", "my landlord is going to shut off my power",
+      "PG&E public safety power shutoff notice for Thursday", "PG&E says they're turning off power for fire weather", "SMUD is going to shut off my power",
+      "LADWP sent a disconnection notice for my electric", "my propane gas is getting cut off"],
+    "ca-water-shutoff": ["my water bill is past due", "CITY WATER DEPARTMENT. Your water bill is past due. Please pay the balance.", "my landlord shut off the water to force me out",
+      "there's a water outage on my street and they shut it off"] };
+  for (const [id, xs] of Object.entries(never)) for (const x of xs) assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  const w = computeDeadline("ca-water-shutoff", "2026-08-01", "2026-09-16");
+  assert.ok(w.next_steps.some(s => /while the appeal is pending, the water system can't shut off your water/.test(s)));
+  assert.ok(w.next_steps.some(s => /under twice the poverty level/.test(s)) && w.sources.some(s => s.includes("for 60 days or more")));
 });
