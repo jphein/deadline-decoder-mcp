@@ -804,3 +804,22 @@ test("foreclosure and small claims: HEDGE with nothing to count; the right peopl
   for (const x of ["the county says my property taxes are in default", "my landlord is being foreclosed on and I rent the house"]) not(x, "ca-foreclosure-nod");
   for (const x of ["I want to sue my landlord in small claims for my deposit", "I won my small claims case but they won't pay"]) not(x, "ca-small-claims");
 });
+
+test("foreclosure and small claims: evictions stay evictions, tenants and other sales stay out", () => {
+  const t = "2026-09-30";
+  const is = (x, id) => assert.equal(detectLetter(x, t).letter_type, id, x);
+  const not = (x, id) => assert.notEqual(detectLetter(x, t).letter_type, id, x);
+  // Small claims can't hear an eviction: an unlawful detainer keeps its 5 court days.
+  for (const x of ["I got an unlawful detainer, is this small claims?", "my landlord filed an eviction, it's not small claims right?",
+    "I got eviction papers from small claims court"]) is(x, "ca-ud");
+  // A printed small-claims form that speaks of eviction isn't a small-claims answer either (the exclusion, not the order).
+  not("PLAINTIFF'S CLAIM AND ORDER TO GO TO SMALL CLAIMS COURT. The plaintiff asks the court to evict the defendant from the rental.", "ca-small-claims");
+  is("my landlord is suing me in small claims for back rent", "ca-small-claims");
+  is("a debt collector sued me in small claims", "ca-small-claims");
+  is("I got a summons for small claims court", "ca-small-claims");
+  // A tenant, or an IRS or sheriff's sale, isn't a trustee's sale to catch up on.
+  for (const x of ["my landlord's house has a notice of trustee's sale, I rent here", "I got a notice to vacate, the house I rent was sold at a foreclosure auction",
+    "the IRS is going to auction my house", "the sheriff is auctioning my house for a judgment"]) not(x, "ca-foreclosure-sale");
+  // A notice of default followed by a notice of sale is at the sale stage.
+  is("I got a notice of default and now a notice of trustee's sale", "ca-foreclosure-sale");
+});

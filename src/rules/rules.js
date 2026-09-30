@@ -952,7 +952,9 @@ export const RULES = [
     count: null,
     hedge: "A Notice of Trustee's Sale prints the date the home will be sold. You can usually still catch up on the loan (reinstate) until 5 business days before that date.",
     must: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction/i,
-    not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted)\b/i,
+    // Not a car, storage, pawn or tax sale; not a tenant (a tenant after a foreclosure sale has other rights and dates);
+    // not an IRS or sheriff's sale for a judgment (not a § 2924 trustee's sale).
+    not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted|landlord|tenant|I rent|renting|renter|notice to vacate|IRS|internal revenue|sheriff|judgment)\b/i,
     detect: [/trustee'?s sale|notice of sale/i, /deed of trust|trustee|beneficiary|mortgage/i, /auction|public sale|sale date|highest bidder/i],
     spoken: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction(ing)? (off )?my (house|home)|sell(ing)? my (house|home) at (an )?auction|auction date for my (house|home)/i,
     answers: /\b(sale|auction|trustee)\b/i,
@@ -978,7 +980,9 @@ export const RULES = [
     hedge: "Small claims papers give the hearing date, and that's the date that counts.",
     must: /small claims|SC-100|plaintiff'?s claim and order/i,
     // Being sued, not suing, and not collecting a judgment you won.
-    not: /\b(want(ed)? to sue|I('m| am)? (going to )?sue|I('m| am) suing|I sued|file (a|my) (small claims|claim)|won (my|the)|judgment|won't pay|collect\w*)\b/i,
+    // …and never an eviction (a UD needs a written response within 5 court days; small claims can't hear one), unless
+    // it's a landlord suing for back rent or a deposit with no eviction word.
+    not: /\b(want(ed)? to sue|I('m| am)? (going to )?sue|I('m| am) suing|I sued|file (a|my) (small claims|claim)|won (my|the)|won't pay|collect(ing)? (my|the|a|on) judgment|collect on)\b|\b(unlawful detainer|UD)\b|^(?!.*\b(back rent|security deposit)\b).*\bevict\w*/is,
     detect: [/small claims/i, /plaintiff'?s claim|SC-100|order to go to/i, /hearing|court date|trial date|defendant/i],
     spoken: /small claims/i,
     answers: /\bsmall claims\b/i,
@@ -1109,7 +1113,7 @@ const SS_AS_INCOME = /^(?!.*\b(social security|SSA|SSI|SSDI|they)\b(?:(?!\b(DMV|
 for (const r of RULES) if (r.family === "ssa") r.not = anyOf(r.not, NOT_SSA, NOT_SSA_VA, EDD_FIRST, SS_AS_INCOME);
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
-export const SPOKEN_ORDER = ["jury-summons", "ca-small-claims", "ca-ud", "ca-civil-summons", "ca-foreclosure-sale", "ca-foreclosure-nod", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
+export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-small-claims", "ca-civil-summons", "ca-foreclosure-sale", "ca-foreclosure-nod", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
   "ca-noa", "ca-edd-sdi", "ssa-overpayment", "ssa-benefits-ending", "ssa-appeals-council", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket", "ca-dmv-aps", "ca-traffic-ticket",
   "ca-ftb-npa", "irs-deficiency", "irs-levy", "irs-cp2000", "hud-public-housing", "hud-voucher-termination", "ca-sheriff-vacate", "ca-subsidy-end", "ca-water-shutoff", "ca-utility-shutoff", "ca-repo-notice", "debt-validation", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
