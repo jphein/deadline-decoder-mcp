@@ -126,12 +126,12 @@ function detectSpoken(text) {
   return null;
 }
 
-// Who sends each family of letters, for "which kind is it?" (in this order, when the family has rules).
-const FAMILY_ASK = [["ssa", "Social Security"], ["housing", "a landlord"], ["court", "a court"],
-  ["benefits", "the county about Medi-Cal, CalFresh or CalWORKs"]];
+// What each family of letters is about, for "which kind is it?" (in this order, when the family has rules).
+const FAMILY_ASK = [["ssa", "Social Security"], ["housing", "your rent or your home"], ["court", "a court case or jury duty"],
+  ["traffic", "a parking ticket"], ["benefits", "Medi-Cal, CalFresh or CalWORKs"]];
 const families = new Set(RULES.map(r => r.family));
-const asked = FAMILY_ASK.filter(([f]) => families.has(f)).map(([, who]) => who);
-export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is it from ${asked.slice(0, -1).join(", ")}, or ${asked.at(-1)}?`;
+const asked = FAMILY_ASK.filter(([f]) => families.has(f)).map(([, what]) => what);
+export const UNKNOWN_LETTER = `I couldn't tell which kind of letter that is. Is it about ${asked.slice(0, -1).join(", ")}, or ${asked.at(-1)}?`;
 
 /** Which kind of letter is this? `among`: the candidate ids from a "which one?" question, to match the answer to. */
 export function detectLetter(text, today = todayIso(), among = []) {

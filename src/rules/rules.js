@@ -12,6 +12,8 @@ const LAWHELP = { name: "LawHelpCA.org", how: "find free legal aid anywhere in C
 const SELFHELP = { name: "California Courts Self-Help Guide", how: "selfhelp.courts.ca.gov — forms and step-by-step help" };
 const TWO11 = { name: "211", how: "dial 2-1-1 from any phone, 24/7, English and Spanish" };
 const JURY = { name: "Your court's jury office", how: "the phone number and website are printed on your summons" };
+const PARKING_AGENCY = { name: "The agency that gave the ticket", how: "its phone number and website are on the ticket or notice" };
+const PAYPLAN = "If you get public benefits or have a low income, ask the agency about a payment plan. People who qualify must be offered one before an unpaid ticket is sent to the DMV.";
 
 function yearNote(date) {
   return CA_VERIFIED_YEARS.includes(date.getUTCFullYear()) ? "" :
@@ -283,10 +285,83 @@ export const RULES = [
     sources: ["Code of Civil Procedure § 209 (a summoned juror who fails to respond can be fined)",
               "California Rules of Court, rule 2.1004 (a one-time postponement) and rule 2.1008 (excuse for undue hardship, in writing)"],
   }),
+  // ---- traffic: parking tickets (Vehicle Code § 40215) -------------------------------------------------------
+  spec({
+    id: "ca-parking-ticket",
+    family: "traffic",
+    title: "California: a parking ticket (notice of parking violation)",
+    plain: "A parking ticket left on your car, or mailed to you, by a city, county or other agency.",
+    anchor: "issued",
+    dateLabel: "Date the ticket was issued (printed on it)",
+    dateQuestion: "What date is on the ticket? You can say something like September 13th.",
+    count: { days: 21, unit: "calendar", roll: "none" },
+    must: /\bpark(ing|ed)?\b/i,
+    not: /delinquen|results? of (the |your )?(initial )?review|administrative hearing/i,
+    detect: [/notice of parking violation|parking (citation|ticket)/i, /\b(violation|citation|penalty)\b/i, /\b(contest|initial review|pay by|due date)\b/i],
+    spoken: /\bparking (ticket|citation|violation)\b|\bticket\b.*\b(parked|parking)\b|\b(parked|parking)\b.*\bticket\b/i,
+    answers: /\bpark(ing|ed)?\b/i,
+    keyterms: ["parking ticket", "parking citation", "initial review"],
+    headline: "Ask the agency for a free review, or pay",
+    steps: [
+      "To fight the ticket, ask the agency that gave it for an initial review within 21 days of the date it was issued. The review is free, and you can ask by phone, in writing or in person.",
+      "If you'll pay it, pay by the date on the ticket, so late penalties aren't added.",
+      PAYPLAN,
+    ],
+    help: [PARKING_AGENCY, LAWHELP, TWO11],
+    sources: ["Vehicle Code § 40215(a) (21 calendar days from the issuance of the notice to request an initial review)",
+              "Vehicle Code § 40220(a) (before an agency files an unpaid ticket with the DMV, it must offer a person who is indigent, as defined there, a payment plan; for $500 or less in penalties and fees, no more than $25 a month)"],
+  }),
+  spec({
+    id: "ca-parking-delinquent",
+    family: "traffic",
+    title: "California: a late notice for a parking ticket (notice of delinquent parking violation)",
+    plain: "A mailed notice that a parking ticket is unpaid and penalties are being added.",
+    anchor: "mailed",
+    dateLabel: "Date the notice was mailed (printed on it)",
+    dateQuestion: "What date is printed on the notice? You can say something like September 13th.",
+    count: { days: 14, unit: "calendar", roll: "none" },
+    must: /\bpark(ing|ed)?\b/i,
+    detect: [/delinquent parking violation|notice of delinquen/i, /\bpark(ing)?\b/i, /\b(penalt(y|ies)|unpaid|late fee)\b/i],
+    spoken: /^(?=.*\b(late|delinquent|overdue|unpaid|past due)\b)(?=.*\bpark(ing|ed)\b)/is,   // any order
+    answers: /\b(late|delinquent|overdue|unpaid|past due)\b/i,
+    keyterms: ["delinquent parking violation"],
+    headline: "Ask for a free review, or pay",
+    steps: [
+      "You can still ask the agency for an initial review within 14 days of the date this notice was mailed. It's free: by phone, in writing or in person.",
+      "Or pay it now, before more penalties are added.",
+      PAYPLAN,
+    ],
+    help: [PARKING_AGENCY, LAWHELP, TWO11],
+    sources: ["Vehicle Code § 40215(a) (14 calendar days from the mailing of a notice of delinquent parking violation)",
+              "Vehicle Code § 40220(a) (before an agency files an unpaid ticket with the DMV, it must offer a person who is indigent a payment plan)"],
+  }),
+  spec({
+    id: "ca-parking-review",
+    family: "traffic",
+    title: "California: the result of a parking ticket review (you can ask for a hearing)",
+    plain: "A letter with the result of the initial review you asked for, if you still disagree.",
+    anchor: "mailed",
+    dateLabel: "Date the review result was mailed (printed on it)",
+    count: { days: 21, unit: "calendar", roll: "none" },
+    must: /\bpark(ing|ed)?\b/i,
+    detect: [/\binitial review\b|\breview (result|decision)/i, /\badministrative hearing\b/i, /\bpark(ing)?\b/i],
+    spoken: /^(?=.*\b(review|appeal)\b)(?=.*\b(denied|result|decision|lost|upheld|turned down)\b)(?=.*\bpark(ing|ed)\b)/is,   // any order
+    answers: /\b(review|hearing|denied|result|decision)\b/i,
+    keyterms: ["administrative hearing"],
+    headline: "Ask for an administrative hearing",
+    steps: [
+      "Ask the agency for an administrative hearing within 21 days of the date the review result was mailed.",
+      "You'll usually have to pay the ticket amount first, as a deposit. If you have a low income or get public benefits and can show you can't pay, the agency has to let you ask for the hearing without paying.",
+      PAYPLAN,
+    ],
+    help: [PARKING_AGENCY, LAWHELP, TWO11],
+    sources: ["Vehicle Code § 40215(b) (21 calendar days after the review result is mailed; the penalty is deposited first, but the agency must let a person who is indigent, as defined in § 40220, ask for a hearing without paying, on proof of inability to pay)"],
+  }),
 ];
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
-export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-noa", "ssa-recon", "ssa-initial"];
+export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-noa", "ssa-recon", "ssa-initial",
+  "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.

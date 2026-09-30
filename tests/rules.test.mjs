@@ -145,6 +145,32 @@ test("detect: a bare 'summons' is a question, and the answer is matched among th
 });
 
 test("detect: the don't-know answer names every family of letters", () => {
-  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it from Social Security, a landlord, a court, or the county about Medi-Cal, CalFresh or CalWORKs?");
+  assert.equal(UNKNOWN_LETTER, "I couldn't tell which kind of letter that is. Is it about Social Security, your rent or your home, a court case or jury duty, a parking ticket, or Medi-Cal, CalFresh or CalWORKs?");
   assert.equal(detectLetter("I got a letter and I'm scared", "2026-10-01").speech, UNKNOWN_LETTER);
+});
+
+// ---- traffic: parking tickets (Vehicle Code § 40215) ----------------------------------------------------------
+test("parking: 21 calendar days from the ticket, 14 from a late notice, 21 from a review result; never rolled", () => {
+  assert.equal(due("ca-parking-ticket", "2026-10-01"), "2026-10-22");
+  assert.equal(due("ca-parking-ticket", "2026-10-10"), "2026-10-31");      // a Saturday, left as it is: early is safe
+  assert.equal(due("ca-parking-delinquent", "2026-10-01"), "2026-10-15");
+  assert.equal(due("ca-parking-delinquent", "2026-11-14"), "2026-11-28");  // a Saturday, left as it is
+  assert.equal(due("ca-parking-review", "2026-10-01"), "2026-10-22");
+});
+
+test("parking: the answer says how it counted, cites 40215, and offers the payment plan", () => {
+  const r = computeDeadline("ca-parking-ticket", "2026-10-01", "2026-10-02");
+  assert.match(r.speech, /^Your deadline is Thursday, October 22, 2026, 20 days from today\. Ask the agency for a free review, or pay\. Here's how I counted\. Issued Thursday, October 1, 2026\. 21 days from that date: Thursday, October 22, 2026\. First step:/);
+  assert.ok(r.sources.some(s => s.includes("40215(a)")) && r.next_steps.some(s => /payment plan\. People who qualify must be offered one/.test(s)));
+  assert.ok(computeDeadline("ca-parking-review", "2026-10-01", "2026-10-02").sources.some(s => s.includes("40215(b)")));
+});
+
+test("parking: a ticket, a late notice and a review result are told apart", () => {
+  const t = "2026-10-02";
+  assert.equal(detectLetter("I got a parking ticket on September 28th", t).letter_type, "ca-parking-ticket");
+  assert.equal(detectLetter("I got a late notice for a parking ticket, it's overdue", t).letter_type, "ca-parking-delinquent");
+  assert.equal(detectLetter("they denied my review of the parking ticket", t).letter_type, "ca-parking-review");
+  assert.equal(detectLetter("NOTICE OF PARKING VIOLATION. Citation No. 12345. Penalty due by 10/22/2026. To contest, request an initial review.", t).letter_type, "ca-parking-ticket");
+  assert.equal(detectLetter("NOTICE OF DELINQUENT PARKING VIOLATION. Parking citation unpaid; late penalties added.", t).letter_type, "ca-parking-delinquent");
+  assert.equal(detectLetter("Results of your initial review: the parking citation stands. You may request an administrative hearing within 21 days.", t).letter_type, "ca-parking-review");
 });
