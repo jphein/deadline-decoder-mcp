@@ -314,6 +314,62 @@ export const RULES = [
     sources: ["Code of Civil Procedure § 209 (a summoned juror who fails to respond can be fined)",
               "California Rules of Court, rule 2.1004 (a one-time postponement) and rule 2.1008 (excuse for undue hardship, in writing)"],
   }),
+  // ---- traffic: tickets and a DMV suspension after a DUI arrest -------------------------------------------------
+  spec({
+    id: "ca-traffic-ticket",
+    family: "traffic",
+    title: "California: a traffic ticket or a courtesy notice from the traffic court",
+    plain: "A traffic citation (a Notice to Appear) from an officer, or the court's courtesy notice about it. Not a parking ticket.",
+    confidence: "HEDGE",
+    anchor: null,
+    count: null,
+    hedge: "A traffic ticket prints its own date to appear by, and that's the date that counts, unless the court has given you a later one in writing.",
+    must: /\b(traffic|speeding|notice to appear|courtesy notice|moving violation|red light|citation)\b/i,
+    // Not a parking ticket, and not what comes after a missed date (a failure to appear or a civil assessment has
+    // its own rules), or a court date for something else.
+    not: /\bparking\b|fail(ed|ure) to appear|\bFTA\b|civil assessment|\bwarrant\b|\b(evict\w*|landlord|jury|small claims)\b/i,
+    detect: [/\b(traffic|speeding|moving violation|red light|vehicle code)\b/i, /notice to appear|courtesy notice|citation/i, /\b(appear|appearance date|bail|pay|traffic court|trial by (written )?declaration)\b/i],
+    spoken: /^(?=.*\b(traffic|speeding|red light|moving violation|courtesy notice|pulled (me )?over)\b)/is,
+    answers: /\b(traffic|speeding|red light|moving|driving)\b/i,
+    keyterms: ["traffic ticket", "courtesy notice", "trial by written declaration"],
+    headline: "Act by the appearance date on your ticket",
+    steps: [
+      "Act by that date: pay, go to court, or ask for a trial. A courtesy notice from the court may show that date or a later one. If none comes, the ticket's date still counts.",
+      "To fight it by mail (a trial by written declaration), make sure the court gets your written request by the appearance date on the ticket. The clerk then extends that date by 25 calendar days and sends the TR-205 form: file it and deposit the bail by the new date.",
+      "If you can't pay, ask the court clerk what your options are. Don't let the date pass: that can add penalties.",
+    ],
+    help: [SELFHELP, LAWHELP, TWO11],
+    sources: ["California Rules of Court, rule 4.210(b) (a request for a trial by written declaration by the appearance date extends it 25 days; the TR-205 form and bail are due by the appearance date or the extended date)",
+              "Vehicle Code § 40902(a)–(b) (a trial by written declaration for most traffic infractions, with bail submitted with the declaration)",
+              "California Courts Self-Help Guide, Traffic (without a courtesy notice, act by the date on the citation)"],
+  }),
+  spec({
+    id: "ca-dmv-aps",
+    family: "traffic",
+    title: "DMV: a license suspension after a DUI arrest (admin per se)",
+    plain: "The DMV's order suspending your license after a DUI arrest, often a pink notice the officer handed you.",
+    anchor: "received",
+    dateLabel: "Date you got the notice (often the day of the arrest)",
+    dateQuestion: "What day did you get the suspension notice? It's often the day of the arrest. You can say something like September 13th.",
+    count: { days: 10, unit: "calendar", roll: "none" },
+    note: "I count 10 calendar days and don't extend it for a weekend or holiday, so this is the safe date to go by.",
+    // An admin per se order after a DUI arrest only: not a suspension for unpaid tickets, a failure to appear,
+    // points, or no insurance, which have their own rules.
+    must: /admin(istrative)? per se|\bAPS\b|pink (notice|paper|slip)|\b(DUI|driving under the influence|blood alcohol|chemical test|breath(alyzer)? test|refus\w* (the |a )?test)\b/i,
+    not: /unpaid (tickets?|fines?)|fail(ed|ure) to appear|\bFTA\b|\bpoints\b|negligent operator|\binsurance\b|financial responsibility|child support|\bregistration\b/i,
+    detect: [/\b(DMV|department of motor vehicles|driver safety)\b/i, /suspen\w*|revo\w*|admin(istrative)? per se/i, /\b(DUI|driving under the influence|blood alcohol|chemical test|hearing)\b/i],
+    spoken: /admin(istrative)? per se|pink (notice|paper|slip)|^(?=.*\b(dmv|license|licence)\b)(?=.*\b(dui|drunk|blood alcohol|breath(alyzer)? test|refused (the )?test)\b)/is,
+    answers: /\b(dmv|dui|license|licence|per se)\b/i,
+    keyterms: ["admin per se", "DMV hearing", "Driver Safety"],
+    headline: "Ask the DMV for a hearing",
+    steps: [
+      "Call the DMV Driver Safety office on the notice and ask for a hearing, within 10 days of getting it. Write down when you called and who you talked to.",
+      "For this kind of suspension, asking in time means the DMV has to hold the hearing and decide before the suspension starts, or put the suspension on hold until it decides. Asking doesn't stop the suspension by itself.",
+      "The DMV hearing is separate from the criminal case. Ask the public defender or a lawyer about both.",
+    ],
+    help: [LAWHELP, TWO11],
+    sources: ["Vehicle Code § 13558(b) (to have a hearing before the suspension takes effect, ask within 10 days of receiving the notice), (d) (a request postmarked or received within 10 days gets a hearing before the effective date) and (e) (a request doesn't stay the suspension, but the DMV must stay it if it misses that hearing)"],
+  }),
   // ---- traffic: parking tickets (Vehicle Code § 40215) -------------------------------------------------------
   spec({
     id: "ca-parking-ticket",
@@ -845,7 +901,7 @@ export const RULES = [
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
-  "ca-noa", "ca-edd-sdi", "ssa-overpayment", "ssa-benefits-ending", "ssa-appeals-council", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
+  "ca-noa", "ca-edd-sdi", "ssa-overpayment", "ssa-benefits-ending", "ssa-appeals-council", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket", "ca-dmv-aps", "ca-traffic-ticket",
   "ca-ftb-npa", "irs-deficiency", "irs-levy", "irs-cp2000", "ca-sheriff-vacate", "ca-subsidy-end", "ca-water-shutoff", "ca-utility-shutoff", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
@@ -869,7 +925,8 @@ export function detect(text) {
     if ((r.must && !r.must.test(text)) || (r.not && r.not.test(text))) continue;
     const score = r.detect.reduce((n, re) => n + (re.test(text) ? 1 : 0), 0);
     // "reconsideration" appears in both SSA letters: a reconsideration DETERMINATION offers a hearing.
-    const bonus = r.id === "ssa-recon" && /(request (for )?(a )?hearing|administrative law judge)/i.test(text) ? 2 : 0;
+    // Only between the two SSA letters: without "reconsideration", a hearing offer (the DMV's, a county's) isn't SSA's.
+    const bonus = r.id === "ssa-recon" && /reconsideration/i.test(text) && /(request (for )?(a )?hearing|administrative law judge)/i.test(text) ? 2 : 0;
     if (score + bonus > bestScore) { best = r; bestScore = score + bonus; }
   }
   return bestScore >= 2 ? best : null;
