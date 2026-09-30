@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*)\b)|^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(unlawful detainer|eviction (summons|papers|notice|lawsuit|case)|(3|three)[- ]day notice|notice to (vacate|quit|pay rent))\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*\b(reconsider\w*|denied|deny|denial|again|second time|twice|not disabled|unfavorable|turned (me )?down|said no|rejected|appeal\w*)\b)(?=.*\b(small claims|custody|divorce|restraining order|immigration|deportation|criminal|misdemeanor|felony|probation|parole|traffic|school|IEP|expulsion|IRS|internal revenue|lev(y|ies|ying)|garnish\w*|debt collector|collection agency|PG&E|utility|shut ?off)\b)|^(?!.*notice of reconsideration).*(overpa(id|yment)|\b(unlawful detainer|eviction (summons|papers|notice|lawsuit|case)|(3|three)[- ]day notice|notice to (vacate|quit|pay rent))\b)|notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -1011,7 +1011,7 @@ export const RULES = [
 
 // The Social Security rules never claim another program's disability letter when Social Security isn't named:
 // EDD or state disability (SDI), workers' comp (WCAB), veterans' benefits, or long-term disability through work.
-const NOT_SSA = /^(?!.*\b(social security|SSA|SSI|SSDI)\b).*\b(EDD|employment development|state disability|SDI|workers'? ?comp\w*|WCAB|veterans?|long[- ]term disability|disability insurance (through|from) (work|my job|my employer)|private disability|accommodation|workplace|at work|my job|my employer)\b/is;
+const NOT_SSA = /^(?!.*\b(social security|SSA|SSI|SSDI)\b).*\b(EDD|employment development|state disability|SDI|workers'? ?comp\w*|WCAB|veterans?|long[- ]term disability|disability insurance (through|from) (work|my job|my employer)|private disability|accommodation|workplace|at work|my job|my employer|DMV|driver'?s license|my license)\b/is;
 // The VA in capitals, or "the va" as ASR writes it; a bare "Va." (Virginia) or Spanish "va" isn't it.
 const NOT_SSA_VA = /^(?![\s\S]*\b([Ss]ocial [Ss]ecurity|SOCIAL SECURITY|SSA|SSI|SSDI)\b)[\s\S]*(\bVA\b|\b[Tt]he [Vv][Aa]\b(?!\.))/;
 // A sentence that leads with EDD is EDD's, even when it mentions Social Security later ("EDD denied my disability,

@@ -664,6 +664,10 @@ test("routing: strong decision markers, EDD-led sentences, the judge's ruling, S
     assert.deepEqual(detectLetter(x, t).candidates, [], x);
   is("the disability judge denied me at my hearing, social security", "ssa-appeals-council");
   not("the judge denied my disability accommodation at my job hearing", "ssa-appeals-council");
+  // With no denial word, a disability judge's hearing to come is still asked about; only another court's hearing
+  // (small claims, custody, immigration, criminal…) keeps Social Security out.
+  assert.deepEqual(detectLetter("I have a hearing with the disability judge next month", t).candidates, ASK);
+  not("the DMV is suspending my license, I'm on disability, can I get a hearing", "ssa-benefits-ending");
   is("PG&E is shutting off my power, I am on SSI, can I get a hearing", "ca-utility-shutoff");
   is("the IRS sent a final notice of intent to levy my social security, I want a hearing", "irs-levy");
   assert.deepEqual(detectLetter("a debt collector is garnishing my social security, can I get a hearing", t).candidates, []);
