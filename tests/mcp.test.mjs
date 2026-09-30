@@ -41,6 +41,22 @@ test("invalid letter type is rejected by the schema", () => withClient(async (cl
   assert.equal(r.isError, true);
 }));
 
+test("a letter that prints its own date takes no notice_date; a dated one still requires it", () => withClient(async (client) => {
+  const jury = await client.callTool({ name: "compute_deadline", arguments: { letter_type: "jury-summons" } });
+  assert.equal(jury.isError, undefined);
+  assert.equal(jury.structuredContent.deadline, null);
+  assert.equal(jury.structuredContent.confidence, "HEDGE");
+  const civil = await client.callTool({ name: "compute_deadline", arguments: { letter_type: "ca-civil-summons" } });
+  assert.equal(civil.isError, true);
+}));
+
+test("detect_letter asks which one, then matches the answer among the candidates", () => withClient(async (client) => {
+  const q = await client.callTool({ name: "detect_letter", arguments: { text: "I got a summons" } });
+  assert.deepEqual(q.structuredContent.candidates, ["ca-ud", "ca-civil-summons", "jury-summons"]);
+  const a = await client.callTool({ name: "detect_letter", arguments: { text: "it's for jury duty", among: q.structuredContent.candidates } });
+  assert.equal(a.structuredContent.letter_type, "jury-summons");
+}));
+
 test("impossible date comes back as a tool error, not a server error", () => withClient(async (client) => {
   const r = await client.callTool({ name: "compute_deadline", arguments: { letter_type: "ca-noa", notice_date: "2026-02-30" } });
   assert.equal(r.isError, true);
