@@ -568,10 +568,12 @@ test("stack review: other programs' disability letters, decisions vs reconsidera
   is("Social Security says my retirement benefits are stopping", "ssa-benefits-ending");
   // A sentence that names Social Security stays Social Security's, even when it mentions EDD too.
   is("social security denied my disability and EDD cut off my SDI too", "ssa-initial");
-  assert.ok(computeDeadline("ssa-benefits-ending", "2026-09-13", "2026-09-14").next_steps.some(s => /retirement or other Social Security benefits, appealing doesn't keep payments going/.test(s)));
+  assert.ok(computeDeadline("ssa-benefits-ending", "2026-09-13", "2026-09-14").next_steps.some(s => /For retirement, survivors or other benefits that aren't about disability, appealing doesn't keep payments going/.test(s)));
   // R3: a reconsideration that mentions the Appeals Council is still a reconsideration; a hearing decision isn't.
   is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. We found you are not disabled. If you disagree, request a hearing before an administrative law judge. If you then disagree with the hearing, you can ask the Appeals Council.", "ssa-recon");
   is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. The administrative law judge found you not disabled. If you disagree, you may ask the Appeals Council to review it.", "ssa-appeals-council");
+  // The Oracle's verbatim reconsideration notice: "hearing decision" there is the next step, not this letter.
+  is("SOCIAL SECURITY ADMINISTRATION Notice of Reconsideration. If you disagree, you may request a hearing before an administrative law judge. If you disagree with the hearing decision, you may ask the Appeals Council to review it.", "ssa-recon");
   // …even when the decision mentions the reconsideration that came before it (the reconsideration bonus would win).
   is("SOCIAL SECURITY ADMINISTRATION. Notice of Decision - Unfavorable. After your reconsideration, the administrative law judge found you not disabled. You may ask the Appeals Council to review this hearing decision.", "ssa-appeals-council");
   // R4: a missed traffic court date isn't a ticket to act on by its date.
@@ -583,6 +585,9 @@ test("stack review: other programs' disability letters, decisions vs reconsidera
   not("the housing authority is shutting off my water", "ca-water-shutoff");
   not("the housing authority says they're turning off the power in my unit", "ca-utility-shutoff");
   for (const x of ["the city of Palo Alto utilities is shutting off my electric", "City Utilities sent a disconnect notice for my power"]) not(x, "ca-utility-shutoff");
+  not("the city of San Luis Obispo utilities is shutting off my electric", "ca-utility-shutoff");
+  // The city pattern stays inside a name: a city mentioned elsewhere in the sentence doesn't exclude a private utility.
+  is("the city of Oakland told me the power company will shut off my power", "ca-utility-shutoff");
   // A voucher ending with no one named goes to the housing authority's rule, which is tried first (a short hearing window).
   is("my section 8 voucher contract is being terminated", "hud-voucher-termination");
   assert.ok(SPOKEN_ORDER.indexOf("hud-voucher-termination") < SPOKEN_ORDER.indexOf("ca-subsidy-end"));

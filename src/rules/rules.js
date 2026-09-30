@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /hearing decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|notice of decision/i,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*notice of reconsideration).*(hearing decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|notice of decision)/is,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -141,7 +141,7 @@ export const RULES = [
   },
   {
     id: "ssa-initial",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /hearing decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|notice of decision/i,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /^(?!.*notice of reconsideration).*(hearing decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|notice of decision)/is,
     spoken: /\b(social security|ssi|ssdi)\b.*\b(denied|turned (me )?down|rejected|said no)\b|\b(denied|turned down|rejected)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(first|denied|application|turned down)\b/i,
     keyterms: ["Social Security", "SSI", "SSDI", "disability"],
@@ -518,7 +518,7 @@ export const RULES = [
       "If it's your disability that's ending, the appeal alone isn't enough: in the same request, ask for reconsideration and say that you want your benefits to continue.",
       "If you're late, ask anyway and explain why: a good reason can still count.",
       "If you lose the appeal, you may have to pay back what you got while waiting.",
-      "For retirement or other Social Security benefits, appealing doesn't keep payments going.",
+      "For retirement, survivors or other benefits that aren't about disability, appealing doesn't keep payments going.",
     ],
     help: [LSNC, LAWHELP, TWO11, SSA],
     sources: ["20 CFR 416.1336(b) (SSI: payments continue on an appeal within 10 days after receipt)",
@@ -757,7 +757,7 @@ export const RULES = [
     // A nonpayment disconnection by a private energy company only: not a landlord (Civil Code § 789.3), not a
     // safety outage, not a city or district utility or propane (§ 779.1 doesn't cover them), not a past-due bill.
     must: /shut ?off|shut\w* (it |my \w+ )?off|disconnect\w*|terminat\w* (of )?(your )?service|turn\w* off|cut\w* off/i,
-    not: /\b(landlord|owner|manager|PSPS|public safety|fire weather|wildfire|outage|propane|butane|SMUD|LADWP|municipal|utility district|irrigation district|department of water and power)\b|\bcity of [a-z]+( [a-z]+)* (utilities|electric|light|power)\b|\bcity (utilities|electric|light and power)\b|\bhousing authority\b|\bwater (service|bill|system|company|district|department|account)\b/i,
+    not: /\b(landlord|owner|manager|PSPS|public safety|fire weather|wildfire|outage|propane|butane|SMUD|LADWP|municipal|utility district|irrigation district|department of water and power)\b|\bcity of [a-z]+( [a-z]+){0,2} (utilities|electric|light|power)\b|\bcity (utilities|electric|light and power)\b|\bhousing authority\b|\bwater (service|bill|system|company|district|department|account)\b/i,
     detect: [/PG&E|pacific gas|edison|socalgas|SDG&E|\b(electric\w*|gas|energy|power)\b/i, /shut ?off|disconnect\w*|terminat\w*|48[- ]hour|turn\w* off|cut\w* off/i, /\b(notice|pay|payment|arrangement|balance|past due)\b/i],
     spoken: /^(?=.*\b(pg&e|pg and e|pge|edison|socalgas|sdg&e|electric\w*|power|gas|lights|utility|utilities)\b)(?=.*\b(shut\w* off|shutoff|disconnect\w*|turn\w* off|cut\w* off)\b)/is,
     answers: /\b(power|electric\w*|gas|pg&e|pge|edison|utility)\b/i,
