@@ -105,7 +105,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*\b(at|after) (my|the) hearing\b(?! (is|was|has been|got) (scheduled|set|coming|postponed))|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /notice of decision|\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*(\b(at|after) (my|the) hearing\b.{0,40}\b(lost|denied|ruled|said no|turned (me )?down|against me)\b|\b(lost|ruled against me|said no|turned me down)\b (at|after) (my|the) hearing\b)|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -141,7 +141,7 @@ export const RULES = [
   },
   {
     id: "ssa-initial",
-    family: "ssa", confidence: "SOLID", anchor: "notice", not: /\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*\b(at|after) (my|the) hearing\b(?! (is|was|has been|got) (scheduled|set|coming|postponed))|^(?!.*notice of reconsideration).*hearing decision/is,
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /\b(administrative law judge|ALJ) (found|decided|dismissed)|\bjudge (ruled|decided|denied)\b|^(?!.*notice of reconsideration).*(\b(at|after) (my|the) hearing\b.{0,40}\b(lost|denied|ruled|said no|turned (me )?down|against me)\b|\b(lost|ruled against me|said no|turned me down)\b (at|after) (my|the) hearing\b)|^(?!.*notice of reconsideration).*hearing decision/is,
     spoken: /\b(social security|ssi|ssdi)\b.*\b(denied|turned (me )?down|rejected|said no)\b|\b(denied|turned down|rejected)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(first|denied|application|turned down)\b/i,
     keyterms: ["Social Security", "SSI", "SSDI", "disability"],
