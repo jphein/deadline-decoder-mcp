@@ -102,7 +102,7 @@ export function spec(s) {
 export const RULES = [
   {
     id: "ssa-recon",
-    family: "ssa", confidence: "SOLID", anchor: "notice",
+    family: "ssa", confidence: "SOLID", anchor: "notice", not: /appeals council/i,
     spoken: /\b(social security|ssi|ssdi|disability)\b.*\b(again|second time|twice)\b|\b(again|second time|twice)\b.*\b(social security|ssi|ssdi|disability)\b/i,
     answers: /\b(again|second|twice|reconsider\w*|hearing)\b/i,
     keyterms: ["Social Security", "reconsideration", "administrative law judge", "SSI", "disability"],
@@ -244,14 +244,17 @@ export const RULES = [
                 "To keep your benefits while you wait, ask BEFORE the date the change takes effect (it is on the notice). This is called \"aid paid pending\".",
                 "Write down the date and time you asked and who you talked to.",
                 "You can bring someone to help you, including free legal aid.",
-                "If the notice is from your Medi-Cal health plan rather than the county, you usually appeal to the plan first, within 60 days of the date on it."],
+                "If the notice is from your Medi-Cal health plan rather than the county, you usually appeal to the plan first, within 60 days of the date on it.",
+                "For a Medi-Cal renewal decision, you may have 120 days from the date the notice was mailed. Check your notice."],
         help: [LSNC, { name: "CDSS State Hearings", how: "(800) 743-8525 (voice and TDD)" }, LAWHELP, TWO11],
         sources: ["Welfare and Institutions Code § 10951 (90 days; good cause up to 180)", "LSNC Guide to CalFresh Benefits — Requesting a fair hearing",
                   "42 CFR 431.211 and 431.230(a) (Medi-Cal: notice at least 10 days before the action; services continue if a hearing is asked for before it)",
-                  "7 CFR 273.13(a)(1) and 273.15(k)(1) (CalFresh: at least 10 days' notice, with exceptions; benefits continue on a timely hearing request, but not past the end of the certification period)"],
+                  "7 CFR 273.13(a)(1) and 273.15(k)(1) (CalFresh: at least 10 days' notice, with exceptions; benefits continue on a timely hearing request, but not past the end of the certification period, and are owed back if the action is upheld)",
+                  "42 CFR 431.231(a) (Medi-Cal: services may be reinstated on a request within 10 days after the date of action)",
+                  "CDSS, State Hearing requests (Medi-Cal renewal decisions: a temporary 120 days from the date the notice was mailed, since April 1, 2023)"],
         // No date of its own: the cutoff is the effective date printed on the notice, usually at least 10 days after
         // it but sometimes less, and the request has to come before it, so no computed day is safe to promise.
-        also: [{ label: "You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect. That date is printed on the notice, usually at least 10 days after it, so ask right away.",
+        also: [{ label: "You may be able to keep your benefits while you wait for the hearing, if you ask before the change takes effect. That date is printed on the notice, usually at least 10 days after it, so ask right away. If you lose, you may have to pay back CalFresh benefits you got while waiting.",
                  confidence: "HEDGE", deadline: null }],
       };
     },
@@ -408,6 +411,59 @@ export const RULES = [
               "20 CFR 404.3(b) and 416.120(d) (a last day on a weekend or federal holiday moves to the next workday)",
               "20 CFR 404.502a and 404.506(c) (Social Security benefits: recovery doesn't start on a waiver or reconsideration request within 30 days)",
               "20 CFR 416.1336(b) (SSI: payments continue on an appeal within 10 days after receipt)"],
+  }),
+  spec({
+    id: "ssa-appeals-council",
+    family: "ssa",
+    title: "Social Security: a judge's decision against you (you can ask the Appeals Council)",
+    plain: "An unfavorable decision, or a dismissal, after a hearing with a Social Security judge.",
+    anchor: "notice",
+    dateLabel: "Date printed on the decision",
+    count: { days: 60, unit: "calendar", mail: 5, roll: "federal" },
+    mailWho: "Social Security",
+    must: /appeals council|hearing decision|administrative law judge|\bALJ\b/i,
+    detect: [/appeals council/i, /\b(hearing decision|administrative law judge|unfavorable|dismiss\w*)\b/i, /social security|supplemental security income|\bSSI\b/i],
+    spoken: /\bappeals council\b|^(?=.*\b(social security|ssi|ssdi|disability)\b)(?=.*\b(judge|hearing|alj)\b)(?=.*\b(denied|lost|unfavorable|said no|against me|dismiss\w*)\b)/is,
+    answers: /\b(judge|hearing|appeals council|decision)\b/i,
+    keyterms: ["Appeals Council", "hearing decision"],
+    headline: "Ask the Appeals Council to review the decision",
+    steps: [
+      "Ask for Appeals Council review, online at ssa.gov or with form HA-520. It's free.",
+      "Keep proof of when you asked.",
+      "If you missed it, you can still ask for more time in writing and explain why (good cause).",
+    ],
+    help: [LSNC, LAWHELP, TWO11, SSA],
+    sources: ["20 CFR 404.968(a)(1) and 416.1468(a) (within 60 days after you receive the notice of the hearing decision or dismissal)",
+              "20 CFR 404.901 and 416.1401 (notice presumed received 5 days after its date)",
+              "20 CFR 404.3(b) and 416.120(d) (a last day on a weekend or federal holiday moves to the next workday)"],
+  }),
+  spec({
+    id: "ssa-benefits-ending",
+    family: "ssa",
+    title: "Social Security or SSI: your benefits will stop or go down (keep them while you appeal)",
+    plain: "A notice that your SSI will be cut, suspended or stopped, or that disability benefits will end because Social Security says you're no longer disabled.",
+    anchor: "notice",
+    dateLabel: "Date printed on the notice",
+    count: { days: 10, unit: "calendar", mail: 5, roll: "none" },
+    mailWho: "Social Security",
+    must: /suspen|reduc|terminat|stop|cease|cessation|ending|no longer disabled/i,
+    not: /overpa(id|yment)/i,
+    detect: [/\b(suspen\w*|reduc\w*|terminat\w*|stop\w*|cease\w*|cessation)\b|no longer disabled/i, /social security|supplemental security income|\bSSI\b|disability/i, /\b(continu\w*|10 days|ten days|appeal)\b/i],
+    spoken: /^(?=.*\b(ssi|social security|ssdi|disability)\b)(?=.*\b(cut\w*|stopp\w*|stop|ending|end|suspend\w*|reduc\w*|going down|terminat\w*|cessation|no longer disabled)\b)/is,
+    answers: /\b(stop\w*|cut\w*|ending|reduc\w*|keep|going down)\b/i,
+    keyterms: ["continued benefits", "cessation", "suspension"],
+    headline: "Appeal, and ask to keep your benefits while you do",
+    also: [{ label: "To appeal at all, you have until {date}, 60 days after you get the notice. After the earlier date, your payments usually stop while you wait, unless you have a good reason for being late.", days: 60, mail: 5 }],
+    steps: [
+      "By this date, appeal in writing. For an SSI cut or stop, appealing in time is usually enough to keep your payments going.",
+      "If it's your disability that's ending, the appeal alone isn't enough: in the same request, ask for reconsideration and say that you want your benefits to continue.",
+      "If you're late, ask anyway and explain why: a good reason can still count.",
+      "If you lose the appeal, you may have to pay back what you got while waiting.",
+    ],
+    help: [LSNC, LAWHELP, TWO11, SSA],
+    sources: ["20 CFR 416.1336(b) (SSI: payments continue on an appeal within 10 days after receipt)",
+              "20 CFR 404.1597a(f)(1) and (g)(1), and 416.996(c) for SSI (disability ending: ask for reconsideration or a hearing and for continued benefits within 10 days after receipt; later, only for good cause)",
+              "20 CFR 404.901 and 416.1401 (receipt presumed 5 days after the notice date)"],
   }),
   // ---- unemployment -----------------------------------------------------------------------------------------------
   spec({
@@ -621,7 +677,7 @@ export const RULES = [
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
-  "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
+  "ca-noa", "ssa-overpayment", "ssa-benefits-ending", "ssa-appeals-council", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
   "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
