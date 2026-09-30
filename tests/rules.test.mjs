@@ -718,3 +718,23 @@ test("follow-ups: other courts' hearings, 'reconsidered', and 'filed an eviction
   assert.equal(detectLetter("I get SSI and my landlord filed an eviction, the hearing is next week", t).letter_type, "ca-ud");
   assert.equal(detectLetter("I lost my eviction case and the sheriff put a notice on my door", t).letter_type, "ca-sheriff-vacate");
 });
+
+test("Social Security said as income, the county's hearing, and 'I haven't went yet'", () => {
+  const t = "2026-09-30";
+  // The rules pick first: a county benefits hearing from a caller on SSI keeps its rule (not the hearing question).
+  for (const x of ["I'm on SSI and the county denied my CalFresh, I want a hearing", "I'm on SSDI, Medi-Cal denied my claim, I want a fair hearing"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-noa", x);
+  // …and when another program's rule picks the letter, the hearing question doesn't take it, even with a Social Security
+  // denial in the same sentence (the DMV's 10 days come first).
+  assert.equal(detectLetter("the DMV suspended my license after the DUI and social security denied me, I want a hearing", t).letter_type, "ca-dmv-aps");
+  // Social Security as income next to another agency's decision isn't a Social Security letter.
+  assert.equal(detectLetter("I'm on social security, the DMV denied my license after the DUI, I want a hearing", t).letter_type, "ca-dmv-aps");
+  assert.equal(detectLetter("social security is my income and the housing authority denied my section 8, I want a hearing", t).letter_type, "hud-voucher-termination");
+  for (const x of ["I'm on SSI and my parking ticket appeal was denied, can I get a hearing", "I'm on SSI and my landlord denied my repair request, can I get a hearing"]) {
+    const r = detectLetter(x, t);
+    assert.ok(!["ssa-recon", "ssa-appeals-council", "ssa-initial"].includes(r.letter_type) && r.candidates.length === 0, x);
+  }
+  // A Social Security denial said by someone on SSI is still Social Security's.
+  assert.equal(detectLetter("I'm on SSI and social security denied my disability again", t).letter_type, "ssa-recon");
+  assert.equal(detectLetter("I haven't went yet", t, ["ssa-recon", "ssa-appeals-council"]).letter_type, "ssa-recon");
+});

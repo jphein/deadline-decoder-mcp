@@ -1021,7 +1021,10 @@ const NOT_SSA_VA = /^(?![\s\S]*\b([Ss]ocial [Ss]ecurity|SOCIAL SECURITY|SSA|SSI|
 // I'm also on social security").
 const EDD_FIRST = /^(?:(?!\b(?:social security|SSA|SSI|SSDI)\b).)*\b(EDD|employment development)\b/is;
 const anyOf = (...res) => ({ test: (t) => res.some(re => re?.test(t)) });
-for (const r of RULES) if (r.family === "ssa") r.not = anyOf(r.not, NOT_SSA, NOT_SSA_VA, EDD_FIRST);
+// Social Security said only as income ("I'm on SSI", "social security is my income") next to another agency or
+// program's decision (the DMV, the housing authority, the county, a landlord…) isn't a Social Security letter.
+const SS_AS_INCOME = /^(?=.*\b((I'?m|I am) on|I (get|receive)|I live on|is my income|my income is)\b)(?=.*\b(DMV|DUI|driver'?s license|housing authority|section 8|voucher|county|CalFresh|Medi-Cal|landlord|parking|repair|IRS|EDD)\b)/is;
+for (const r of RULES) if (r.family === "ssa") r.not = anyOf(r.not, NOT_SSA, NOT_SSA_VA, EDD_FIRST, SS_AS_INCOME);
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
@@ -1047,7 +1050,7 @@ export const AMBIGUOUS = [
     // Tried in order, before each rule's own `answers`: a "not yet" first, so "no, I haven't had it" isn't read as "had it".
     // "Not yet" yields to an outcome or a hearing already had ("no, the judge ruled against me"; "I had it but I haven't
     // heard back"): those are past the hearing.
-    answers: [["ssa-recon", /^(?!.*\b(ruled|lost|against me|said no|turned (me )?down|(?<!(haven'?t|have not|hasn'?t|has not|didn'?t|not yet) )had (it|my hearing|the hearing)|heard back|went|the decision)\b)(\W*(no|nope|not yet)\b|.*\b(not yet|haven'?t|have not|hasn'?t|has not|scheduled|set for|coming( up)?|waiting|next (week|month))\b)/is],
+    answers: [["ssa-recon", /^(?!.*\b(ruled|lost|against me|said no|turned (me )?down|(?<!(haven'?t|have not|hasn'?t|has not|didn'?t|not yet) )(had (it|my hearing|the hearing)|went)|heard back|the decision)\b)(\W*(no|nope|not yet)\b|.*\b(not yet|haven'?t|have not|hasn'?t|has not|scheduled|set for|coming( up)?|waiting|next (week|month))\b)/is],
               ["ssa-appeals-council", /^\W*(yes|yeah|yep|i did)\b|\b(already|had it|had (my|the) hearing|went to (it|the hearing|my hearing)|the judge|lost|ruled|it was|heard back|went|the decision)\b/i]] },
   { spoken: /\bsummons\b|\bcourt papers\b/i, candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
     question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
