@@ -69,7 +69,7 @@ export function countSteps(s, anchor, c) {
     lines.push(`${s.confidence === "HEDGE" ? "Usually the deadline is " : ""}${days} days from ${from}: ${fmt(c.raw)}.`);
     if (c.rolled.length) lines.push(rollLine(c.rolled, c.date, ROLL[roll].next) + (roll === "court" ? yearNote(c.date) : ""));
     // A rule that doesn't roll says so when its day isn't a working day, instead of passing it off as final.
-    if (roll === "none" && !isCourtDay(c.raw)) lines.push(`That's ${/^(Saturday|Sunday)$/.test(whyNotWorkday(c.raw)) ? `a ${whyNotWorkday(c.raw)}` : whyNotWorkday(c.raw)}. Don't count on extra time: act before then.`);
+    if (roll === "none" && !s.lead && !isCourtDay(c.raw)) lines.push(`That's ${/^(Saturday|Sunday)$/.test(whyNotWorkday(c.raw)) ? `a ${whyNotWorkday(c.raw)}` : whyNotWorkday(c.raw)}. Don't count on extra time: act before then.`);
   }
   if (s.note) lines.push(s.note);
   return lines;
@@ -85,7 +85,8 @@ function alsoDates(list = [], anchor) {
 /** A rule written as data. Needs: id, family, title, plain, anchor (a key of ANCHORS, or null when the notice
  *  prints its own date and there is nothing to count), count, headline, steps, help, sources, detect, spoken,
  *  answers, keyterms. Optional: confidence ("SOLID", or "HEDGE" plus a `hedge` sentence), dateLabel,
- *  dateQuestion, mailWho, not (printed cues that rule it out), also (see alsoDates). */
+ *  dateQuestion, mailWho, not (printed cues that rule it out), also (see alsoDates), note (a last counting step),
+ *  lead (the answer's first sentence, with {date}, for a notice that sets the earliest date something can happen). */
 export function spec(s) {
   return {
     confidence: "SOLID", ...s,
@@ -484,6 +485,66 @@ export const RULES = [
               "42 CFR 438.402(c)(1)(i) and 438.408 (a State Hearing after the plan upholds its decision, or at once if the plan misses its notice or timing rules: 438.408(c)(3))",
               "42 CFR 438.410 (expedited appeals)"],
   }),
+  // ---- housing: notices that end a tenancy or raise the rent ------------------------------------------------------
+  ...[30, 60].map(days => spec({
+    id: `ca-${days}day-notice`,
+    family: "housing",
+    title: `California: a ${days}-day notice to move out (termination of tenancy)`,
+    plain: days === 60 ? "A landlord's notice ending a month-to-month tenancy, for a tenant who has lived there a year or more."
+      : "A landlord's notice ending a month-to-month tenancy, for a tenant who has lived there less than a year.",
+    confidence: "HEDGE",
+    anchor: "served",
+    dateLabel: "Date the notice was handed to you",
+    dateQuestion: "What day was the notice handed to you? You can say something like September 13th.",
+    count: { days, unit: "calendar", roll: "none" },
+    lead: `A ${days}-day notice can't end your tenancy before {date}`,
+    note: "This counts from the day the notice was handed to you. If it came by mail, the earliest end date may be later.",
+    must: days === 60 ? /\b(60|sixty)\b/i : /\b(30|thirty)\b/i,
+    not: days === 60 ? /\b(30|thirty)[- ]day notice\b/i : /\b(60|sixty)[- ]day notice\b/i,
+    detect: [days === 60 ? /\b(60|sixty)[- ]day notice\b|sixty \(60\) days/i : /\b(30|thirty)[- ]day notice\b|thirty \(30\) days/i,
+      /terminat\w* (of )?(your )?tenancy|notice to (vacate|quit|move out)/i, /\b(landlord|owner|tenant|premises)\b/i],
+    spoken: days === 60 ? /\b(60|sixty)[- ]day notice\b/i : /\b(30|thirty)[- ]day notice\b/i,
+    answers: days === 60 ? /\b(60|sixty)\b/i : /\b(30|thirty)\b/i,
+    keyterms: [`${days}-day notice`, "termination of tenancy"],
+    headline: "Get free legal help to check the notice, and plan for that date",
+    steps: [
+      "This notice isn't an eviction order. If you're still there after that date, the landlord has to go to court, and you'll get court papers you can answer.",
+      days === 30 ? "If you've lived there a year or more, the landlord usually has to give 60 days' notice, not 30."
+        : "The landlord has to give at least 60 days' notice to a tenant who has lived there a year or more.",
+      "If you've lived there 12 months or more, many California landlords need a legal reason (just cause), and for some reasons they owe you one month's rent to help you move. Ask legal aid whether yours is valid.",
+    ],
+    help: [LSNC, LAWHELP, SELFHELP, TWO11],
+    sources: ["Civil Code § 1946.1(b)–(d) (60 days' notice for a tenant of a year or more, 30 days for less, with a sale exception) and (f) (served in person or by certified or registered mail)",
+              "Civil Code § 1946.2 (after 12 months, many tenancies can end only for just cause; one month's rent for a no-fault termination)"],
+  })),
+  spec({
+    id: "ca-rent-increase",
+    family: "housing",
+    title: "California: a notice that your rent is going up",
+    plain: "A landlord's written notice of a rent increase on a month-to-month tenancy.",
+    confidence: "HEDGE",
+    anchor: "served",
+    dateLabel: "Date the notice was handed to you",
+    dateQuestion: "What day was the notice handed to you? You can say something like September 13th.",
+    count: { days: 30, unit: "calendar", roll: "none" },
+    lead: "If the increase is 10 percent or less, the new rent can't start before {date}",
+    also: [{ label: "If it's more than 10 percent, it can't start before {date}, 90 days after you got the notice.", days: 90 }],
+    note: "If the notice came by mail, add 5 days to each date.",
+    must: /^(?=.*\brent(al)?\b)(?=.*\bincrease)/is,
+    detect: [/\b(rent|rental)\b/i, /\bincrease\b/i, /\b(notice|effective)\b/i],
+    spoken: /^(?=.*\brent\b)(?=.*\b(increas\w*|going up|goes up|raise\w*|raising|higher)\b)/is,
+    answers: /\b(rent|increase|raise|going up)\b/i,
+    keyterms: ["rent increase"],
+    headline: "Keep paying your current rent until the new rent can start",
+    steps: [
+      "A rent increase needs written notice: at least 30 days for 10 percent or less over the past year, at least 90 days for more.",
+      "Many California rentals can't go up more than 5 percent plus inflation, and never more than 10 percent, in a year, and some cities limit it more. Ask legal aid if yours looks higher.",
+      "Keep paying your current rent until the new rent can start.",
+    ],
+    help: [LSNC, LAWHELP, TWO11],
+    sources: ["Civil Code § 827(b) (30 days' notice for an increase of 10 percent or less over the past 12 months, 90 days for more; 5 more days if mailed, Code of Civil Procedure § 1013)",
+              "Civil Code § 1947.12(a)(1) (for many rentals, no more than 5 percent plus the change in the cost of living, or 10 percent, whichever is lower, in 12 months)"],
+  }),
   // ---- taxes: the IRS -------------------------------------------------------------------------------------------
   spec({
     id: "irs-deficiency",
@@ -561,13 +622,15 @@ export const RULES = [
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
 export const SPOKEN_ORDER = ["jury-summons", "ca-ud", "ca-civil-summons", "ca-3day", "ca-medi-cal-plan", "ca-medi-cal-plan-denial",
   "ca-noa", "ssa-overpayment", "ssa-recon", "ssa-initial", "ca-edd-determination", "ca-parking-review", "ca-parking-delinquent", "ca-parking-ticket",
-  "irs-deficiency", "irs-levy", "irs-cp2000"];
+  "irs-deficiency", "irs-levy", "irs-cp2000", "ca-60day-notice", "ca-30day-notice", "ca-rent-increase"];
 
 // Words that could mean more than one kind of letter. The line asks which, then matches the answer among
 // the candidates' `answers`.
 export const AMBIGUOUS = [
   { spoken: /\bsummons\b|\bcourt papers\b/i, candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
     question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
+  { spoken: /notice to (vacate|move out|terminate)|terminat\w* (of )?(my |the )?tenancy|move[- ]out notice|telling me to move out/i, candidates: ["ca-30day-notice", "ca-60day-notice"],
+    question: "Does the notice give you 30 days or 60 days?" },
   { spoken: /\b(irs|internal revenue)\b/i, candidates: ["irs-cp2000", "irs-deficiency", "irs-levy"],
     question: "Is it a CP2000 about proposed changes to your return, a Notice of Deficiency, or a final notice before a levy?" },
 ];

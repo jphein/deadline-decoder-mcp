@@ -272,3 +272,37 @@ test("IRS: the three letters are recognized, and a bare 'IRS letter' asks which"
   assert.equal(detectLetter("it says final notice before a levy", t, q.candidates).letter_type, "irs-levy");
   assert.equal(detectLetter("proposed changes to my return", t, q.candidates).letter_type, "irs-cp2000");
 });
+
+// ---- housing: notices that end a tenancy or raise the rent --------------------------------------------------------
+test("30- and 60-day notices: the earliest the tenancy can end, said as that (Civil Code § 1946.1)", () => {
+  assert.equal(due("ca-60day-notice", "2026-09-01"), "2026-10-31");
+  assert.equal(due("ca-30day-notice", "2026-09-15"), "2026-10-15");
+  const r = computeDeadline("ca-60day-notice", "2026-09-01", "2026-09-02");
+  assert.equal(r.confidence, "HEDGE");
+  assert.match(r.speech, /^A 60-day notice can't end your tenancy before Saturday, October 31, 2026, 59 days from today\. Get free legal help/);
+  assert.match(r.speech, /If it came by mail, the earliest end date may be later\./);
+  assert.doesNotMatch(r.speech, /act before then/);                          // an end date isn't a day to act by
+  assert.ok(r.next_steps.some(s => /isn't an eviction order/.test(s)));
+  assert.ok(computeDeadline("ca-30day-notice", "2026-09-15", "2026-09-16").next_steps.some(s => /60 days' notice, not 30/.test(s)));
+});
+
+test("rent increase: 30 days for 10 percent or less, 90 for more, and 5 more if mailed (Civil Code § 827)", () => {
+  assert.equal(due("ca-rent-increase", "2026-09-15"), "2026-10-15");
+  const r = computeDeadline("ca-rent-increase", "2026-09-15", "2026-09-16");
+  assert.match(r.speech, /^If the increase is 10 percent or less, the new rent can't start before Thursday, October 15, 2026, 29 days from today\. Keep paying your current rent until the new rent can start\. If it's more than 10 percent, it can't start before Monday, December 14, 2026, 90 days after you got the notice\./);
+  assert.match(r.speech, /If the notice came by mail, add 5 days to each date\./);
+  assert.ok(r.sources.some(s => s.includes("827(b)")) && r.sources.some(s => s.includes("1947.12")));
+});
+
+test("housing notices are recognized, and a notice to vacate asks 30 or 60", () => {
+  const t = "2026-10-01";
+  assert.equal(detectLetter("my landlord gave me a 60-day notice", t).letter_type, "ca-60day-notice");
+  assert.equal(detectLetter("I got a thirty day notice from my landlord", t).letter_type, "ca-30day-notice");
+  assert.equal(detectLetter("my landlord says my rent is going up", t).letter_type, "ca-rent-increase");
+  assert.equal(detectLetter("my landlord taped a three day notice on my door yesterday", t).letter_type, "ca-3day");   // still the 3-day notice
+  assert.equal(detectLetter("60-DAY NOTICE OF TERMINATION OF TENANCY. To the tenant: the landlord terminates your tenancy of the premises.", t).letter_type, "ca-60day-notice");
+  assert.equal(detectLetter("NOTICE OF CHANGE OF TERMS OF TENANCY: your rent will increase to $1,850, effective December 1.", t).letter_type, "ca-rent-increase");
+  const q = detectLetter("I got a notice to vacate", t);
+  assert.deepEqual(q.candidates, ["ca-30day-notice", "ca-60day-notice"]);
+  assert.equal(detectLetter("sixty", t, q.candidates).letter_type, "ca-60day-notice");
+});

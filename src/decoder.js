@@ -74,7 +74,10 @@ export function computeDeadline(letterType, noticeDate, today = todayIso()) {
     ? { label: a.label, confidence: a.confidence, date: iso(a.deadline), date_spoken: fmt(a.deadline), passed: daysBetween(now, a.deadline) < 0 }
     : { label: a.label, confidence: a.confidence, date: null, date_spoken: null, passed: false });
   const alsoSpoken = also.map(a => (a.date ? a.label.replace("{date}", a.date_spoken) : a.label) + (a.passed ? " That date has passed." : "")).join(" ");
-  const lead = hedged
+  // A notice that sets the earliest date something can happen (a tenancy ending, a rent increase) says so in its own words.
+  const lead = rule.lead
+    ? `${rule.lead.replace("{date}", fmt(r.deadline))}, ${daysPhrase(daysLeft).replace(" — it has passed", "")}.${late ? " That date has passed." : ""}`
+    : hedged
     ? `For this kind of notice the deadline is usually ${fmt(r.deadline)}, ${daysPhrase(daysLeft)}. Check the notice itself: if it gives a different date, go by the notice.`
     : late
       ? `The deadline was ${fmt(r.deadline)}, ${daysPhrase(daysLeft)}. It may not be too late: ask for more time in writing and explain why, and call free legal aid today.`
