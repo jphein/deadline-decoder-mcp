@@ -200,7 +200,7 @@ export const RULES = [
   {
     id: "ca-ud",
     family: "housing", confidence: "SOLID", anchor: "served",
-    spoken: /\beviction papers\b|unlawful detainer|\b(filed|filing|file) (an |the )?eviction\b|\bsu(ed|ing) (me )?to evict|\b(summons|court papers)\b.*\b(evict\w*|landlord|rent|tenant)\b|\b(evict\w*|landlord|rent)\b.*\b(summons|court papers)\b/i,
+    spoken: /\beviction papers\b|unlawful detainer|\bUD\b|\b(filed|filing|file) (an |the )?eviction\b|\bsu(ed|ing) (me )?to evict|\b(summons|court papers)\b.*\b(evict\w*|landlord|rent|tenant)\b|\b(evict\w*|landlord|rent)\b.*\b(summons|court papers)\b/i,
     answers: /\b(evict\w*|landlord|rent|tenant|apartment|housing|move out)\b/i,
     keyterms: ["unlawful detainer", "eviction", "summons"],
     title: "California: court papers for an eviction (Summons, unlawful detainer)",
@@ -955,8 +955,9 @@ export const RULES = [
     hedge: "A Notice of Trustee's Sale prints the date the home will be sold. You can usually still catch up on the loan (reinstate) until 5 business days before that date.",
     must: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction/i,
     // Not a car, storage, pawn or tax sale; not a tenant (a tenant after a foreclosure sale has other rights and dates);
-    // not an IRS or sheriff's sale for a judgment (not a § 2924 trustee's sale).
-    not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted|landlord|tenant|I rent|renting|renter|notice to vacate|IRS|internal revenue|sheriff|judgment)\b/i,
+    // not an IRS or sheriff's sale for a judgment (not a § 2924 trustee's sale); not an HOA's assessment-lien sale, as on
+    // the Notice of Default rule (Civil Code § 5700 et seq. adds its own steps; not verified here).
+    not: /\b(car|vehicle|truck|storage|pawn|property tax(es)?|tax sale|tax[- ]defaulted|landlord|tenant|I rent|renting|renter|notice to vacate|IRS|internal revenue|sheriff|(for|to collect) a judgment|judgment (lien|creditor)|writ of execution|HOA|homeowners'? association|assessment lien)\b/i,
     detect: [/trustee'?s sale|notice of sale/i, /deed of trust|trustee|beneficiary|mortgage/i, /auction|public sale|sale date|highest bidder/i],
     spoken: /trustee'?s sale|notice of sale|foreclosure (sale|auction)|auction(ing)? (off )?my (house|home)|sell(ing)? my (house|home) at (an )?auction|auction date for my (house|home)/i,
     answers: /\b(sale|auction|trustee)\b/i,
@@ -984,7 +985,7 @@ export const RULES = [
     // Being sued, not suing, and not collecting a judgment you won.
     // …and never an eviction (a UD needs a written response within 5 court days; small claims can't hear one), unless
     // it's a landlord suing for back rent or a deposit with no eviction word.
-    not: /\b(want(ed)? to sue|I('m| am)? (going to )?sue|I('m| am) suing|I sued|file (a|my) (small claims|claim)|I won(?!'t)|collect (my|the|on (a|my|the)) judgment)\b|\b(unlawful detainer|UD)\b|^(?!.*\b(back rent|security deposit)\b).*\bevict\w*/is,
+    not: /\b(want(ed)? to sue|I('m| am)? (going to )?sue|I('m| am) suing|I sued|file (a|my) (small claims|claim)|I won(?!['’]t)|collect (my|the|on (a|my|the)) judgment)\b|\b(unlawful detainer|UD)\b|^(?!.*\b(back rent|security deposit)\b).*\bevict\w*/is,
     detect: [/small claims/i, /plaintiff'?s claim|SC-100|order to go to/i, /hearing|court date|trial date|defendant/i],
     spoken: /small claims/i,
     answers: /\bsmall claims\b/i,
@@ -1109,9 +1110,11 @@ const EDD_FIRST = /^(?:(?!\b(?:social security|SSA|SSI|SSDI)\b).)*\b(EDD|employm
 const anyOf = (...res) => ({ test: (t) => res.some(re => re?.test(t)) });
 // Social Security said only as income ("I'm on SSI", "social security is my income") next to another agency or
 // program's decision (the DMV, the housing authority, the county, a landlord…) isn't a Social Security letter.
-// Not when Social Security (or "they") is itself the one deciding, with the agency only the reason ("social security
-// says I was overpaid because of my EDD payments"); the window can't cross another agency's name.
-const SS_AS_INCOME = /^(?!.*\b(social security|SSA|SSI|SSDI|they)\b(?:(?!\b(DMV|county|landlord|housing authority|EDD|Medi-Cal|CalFresh|IRS|parking)\b).){0,20}\b(says?|said|denied|den(y|ies)|(is|are) (cutting|reducing|stopping|taking)|cut\w*|reduc\w*|stop\w*|overpa\w*|sent)\b)(?=.*\b((I'?m|I am) on|I (get|receive)|I live on|is my income|my income is)\b)(?=.*\b(DMV|DUI|driver'?s license|housing authority|section 8|voucher|county|CalFresh|Medi-Cal|landlord|parking|repair|IRS|EDD)\b)/is;
+// Not when Social Security is itself the one deciding, with the agency only the reason ("social security says I was
+// overpaid because of my EDD payments"); the window can't cross another agency's name. "They" counts as Social
+// Security only when what they cut or stop is Social Security's ("they are cutting it", "…my check"), not "they
+// stopped my Medi-Cal".
+const SS_AS_INCOME = /^(?!.*\b(social security|SSA|SSI|SSDI)\b(?:(?!\b(DMV|county|landlord|housing authority|EDD|Medi-Cal|CalFresh|IRS|parking|they)\b).){0,20}\b(says?|said|denied|den(y|ies)|(is|are) (cutting|reducing|stopping|taking)|cut\w*|reduc\w*|stop\w*|overpa\w*|sent)\b)(?!.*\bthey\b.{0,12}\b((is|are) (cutting|reducing|stopping|taking)|cut\w*|reduc\w*|stop\w*|den(y|ies|ied))\b (it|my (check|SSI|SSDI|benefits|payments?|social security))\b)(?=.*\b((I'?m|I am) on|I (get|receive)|I live on|is my income|my income is)\b)(?=.*\b(DMV|DUI|driver'?s license|housing authority|section 8|voucher|county|CalFresh|Medi-Cal|landlord|parking|repair|IRS|EDD)\b)/is;
 for (const r of RULES) if (r.family === "ssa") r.not = anyOf(r.not, NOT_SSA, NOT_SSA_VA, EDD_FIRST, SS_AS_INCOME);
 
 // The spoken detector tries rules in this order: most specific first ("a jury summons" before "summons").
@@ -1130,7 +1133,9 @@ export const AMBIGUOUS = [
   // another program), not on a Notice of Reconsideration or an initial denial, which say which letter they are.
   { preempt: true,
     // Social Security (or a disability judge that isn't about a job), a hearing, and an outcome or appeal word: a
-    // custody, immigration or criminal hearing from a caller on SSI isn't asked.
+    // custody, immigration or criminal hearing from a caller on SSI isn't asked. (The outcome-word lookahead is a second
+    // guard: ssa-recon's no-cue exclusion, which `unless` reads, already keeps out a cue-less hearing that names another
+    // court or program.)
     spoken: /^(?=.*\b(social security|SSA|SSI|SSDI)\b|(?!.*\b(accommodation|at work|my job|employer)\b)(.*\bdisability\b.*\b(judge|ALJ)\b|.*\b(judge|ALJ)\b.*\bdisability\b))(?=.*\bhearings?\b)(?=.*\b(denied|deny|turned (me )?down|said no|lost|against me|unfavorable|reconsider\w*|appeal\w*|judge|ALJ)\b)/is,
     unless: (t) => RULES.find(r => r.id === "ssa-recon").not.test(t) || /notice of reconsideration|notice of disapproved claim|\b(initial|first) (determination|denial|decision)\b|(ask|request)( for)? (a )?reconsideration/i.test(t),
     candidates: ["ssa-recon", "ssa-appeals-council"],
