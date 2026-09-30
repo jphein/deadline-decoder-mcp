@@ -17,6 +17,8 @@ An [MCP](https://modelcontextprotocol.io) server (spec **2025-11-25**, **Streama
 | EDD: Notice of Determination or Notice of Overpayment (unemployment) | 30 days from the mail date to appeal, extended for good cause (Unemp. Ins. Code §§ 1328, 1377) |
 | California court papers for a lawsuit (a Summons that isn't an eviction) | 30 days after service; a last day on a weekend or court holiday moves to the next court day (CCP §§ 412.20(a)(3), 12, 12a) |
 | A jury summons | **HEDGE**: the summons prints its own date to respond; postpone once or ask to be excused for hardship (CCP § 209; CRC rules 2.1004, 2.1008) |
+| California 30-day or 60-day notice to move out | **HEDGE**: the tenancy can't end before 30 days (tenant of less than a year) or 60 days (a year or more) after service; later if mailed; often just cause is needed after 12 months (Civil Code §§ 1946.1, 1946.2) |
+| California rent increase | **HEDGE**: the new rent can't start before 30 days after service for 10 percent or less, 90 days for more, plus 5 if mailed (Civil Code § 827(b)); many rentals are capped at 5 percent plus inflation, 10 percent at most (§ 1947.12) |
 | IRS Notice of Deficiency (the 90-day letter) | 90 days after mailing (150 if addressed outside the U.S.) to petition the Tax Court; a last day on a weekend or D.C. legal holiday moves to the next day (26 U.S.C. § 6213(a)) |
 | IRS final notice of intent to levy (CP90, LT11, Letter 1058) | 30 days, beginning the day after the notice's date, to ask for a Collection Due Process hearing (Form 12153); levy suspended while it's pending; an equivalent hearing within a year (26 U.S.C. §§ 6330, 7503; Treas. Reg. § 301.6330-1) |
 | IRS CP2000 (proposed changes) | **HEDGE**: reply by the response date on the notice, usually 30 days (60 outside the U.S.) (IRS Tax Topic 652) |
@@ -44,7 +46,7 @@ Server instructions tell the assistant to always call `compute_deadline` rather 
 ```bash
 npm install
 npm start                      # MCP at http://127.0.0.1:8766/mcp, simulator at http://127.0.0.1:8766/
-npm test                       # 58 tests: rules, dates, the decoder and end-to-end MCP
+npm test                       # 61 tests: rules, dates, the decoder and end-to-end MCP
 ```
 
 Behind a reverse proxy: `HOST=0.0.0.0 ALLOWED_HOSTS=deadlines.example.org PORT=8766 npm start` (DNS-rebinding protection stays on for the listed hosts).
