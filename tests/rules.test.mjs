@@ -926,7 +926,10 @@ test("an 'If …' sentence's future consequence is hypothetical too; a past mayb
     ["I didn't get a summons, just the letter", "debt-validation"], ["no summons", "debt-validation"], ["not a summons", "debt-validation"],
     ["the letter mentions a lawsuit", "debt-validation"], ["I haven't been served, it's just a letter", "debt-validation"],
     ["both", "ca-civil-summons"], ["I got both", "ca-civil-summons"], ["no, it's a summons", "ca-civil-summons"], ["no papers, just a letter", "debt-validation"],
-    ["no", null], ["nope", null], ["yes", null]])
+    ["no", null], ["nope", null], ["yes", null],
+    // "the letter says they sued me" may mean papers came too: asked again; denied or threatened, it's the letter.
+    ["the letter says they sued me", null], ["the letter said there's a lawsuit", null],
+    ["the letter says they haven't sued me", "debt-validation"], ["the letter says they will sue me", "debt-validation"]])
     assert.equal(detectLetter(said, t, AMONG).letter_type, want, said);
 });
 
@@ -941,6 +944,15 @@ test("a collector's suit said plainly is a civil summons; an SC-100 is small cla
   // A landlord's suit may be an eviction: not the civil summons answer.
   for (const x of ["I owe a collection agency and my landlord is suing me for back rent", "my landlord is suing me for back rent"])
     assert.notEqual(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  // Papers served with a 3-day notice or a notice to quit: an eviction (10 court days) or a money suit (30)? Asked,
+  // even when a rule would have answered.
+  for (const x of ["a debt collector served me with papers about a 3 day notice", "a debt collector served me with papers, a notice to quit",
+    "the collection agency served me with court papers about a notice to pay rent or quit"]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, null, x);
+    assert.deepEqual(r.candidates, ["ca-ud", "ca-civil-summons", "jury-summons"], x);
+    assert.equal(r.speech, "Is it about an eviction, a lawsuit about money, or jury duty?");
+  }
   // Eviction papers, served: the eviction answer (10 court days), not nothing.
   for (const x of ["my landlord served me with papers for an eviction", "they served me with papers to evict me", "I got a UD and the collection agency is suing me"])
     assert.equal(detectLetter(x, t).letter_type, "ca-ud", x);

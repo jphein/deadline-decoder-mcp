@@ -1162,9 +1162,18 @@ export const AMBIGUOUS = [
     // A court word that's denied ("I didn't get a summons", "no summons") or only in the letter ("the letter mentions a
     // lawsuit") is the letter; "both" is the summons, whose court clock matters most. A bare "no" (to an either-or
     // question) settles nothing, so it's asked again, like a bare "yes".
-    answers: [["ca-civil-summons", /^(?!.*\b(no|not|didn'?t|haven'?t|hasn'?t|never|without)\b[^,.;!?]{0,15}?\b(court papers|papers|summons|lawsuit|sued|served)\b)(?!.*\bletter (says|said|mentions|talks about)\b).*\b(court papers|papers|summons|lawsuit|sued|court|both)\b/i],
+    answers: [
+      // "the letter says they sued me" (not denied) may mean papers came too: asked again.
+      [null, /^(?!.*\b(no|not|haven'?t|hasn'?t|didn'?t|never|won'?t)\b).*\bletter (says|said)\b.*\b(sued|lawsuit)\b/i],
+      ["ca-civil-summons", /^(?!.*\b(no|not|didn'?t|haven'?t|hasn'?t|never|without)\b[^,.;!?]{0,15}?\b(court papers|papers|summons|lawsuit|sued|served)\b)(?!.*\bletter (says|said|mentions|talks about)\b).*\b(court papers|papers|summons|lawsuit|sued|court|both)\b/i],
       ["debt-validation", /^(?!\W*(no|nope|nah)\W*$).*\b(letter|notice|collector|just|only|not yet|no|not|didn'?t|haven'?t|never)\b/i]] },
   { spoken: /\bsummons\b|\bcourt papers\b/i, candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
+    question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
+  // Papers served together with a notice to quit or a 3-day notice may be an eviction (10 court days) or a money
+  // lawsuit (30 days): asked, even over the rules' pick, so a UD isn't answered with the later deadline.
+  { preempt: true,
+    spoken: /\bserved (me |you )?(with )?(court |legal |the )?papers\b.*\b(3[- ]day notice|notice to (quit|vacate|pay rent))\b|\b(3[- ]day notice|notice to (quit|vacate|pay rent))\b.*\bserved (me |you )?(with )?(court |legal |the )?papers\b/i,
+    candidates: ["ca-ud", "ca-civil-summons", "jury-summons"],
     question: "Is it about an eviction, a lawsuit about money, or jury duty?" },
   { spoken: /notice to (vacate|move out|terminate)|terminat\w* (of )?(my |the )?tenancy|move[- ]out notice|telling me to move out/i, candidates: ["ca-30day-notice", "ca-60day-notice"],
     question: "Does the notice give you 30 days or 60 days?" },

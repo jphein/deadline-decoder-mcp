@@ -176,8 +176,9 @@ export function detectLetter(text, today = todayIso(), among = [], { letterType 
   if (typeof text !== "string") throw new DecoderError("text must be a string");
   // A question with its own answers (the hearing ask) is matched by those first, in order.
   const asked = among.length ? AMBIGUOUS.find(g => g.answers && g.candidates.length === among.length && g.candidates.every(c => among.includes(c))) : null;
-  const heard = asked?.answers.find(([, re]) => re.test(text))?.[0];
-  let rule = heard ? findRule(heard) : among.map(findRule).find(r => r.answers?.test(text)) ?? null;
+  // An answer listed as [null, pattern] settles nothing on purpose: asked again, not passed on to the rules' answers.
+  const hit = asked?.answers.find(([, re]) => re.test(text)), heard = hit?.[0];
+  let rule = heard ? findRule(heard) : hit ? null : among.map(findRule).find(r => r.answers?.test(text)) ?? null;
   if (!rule) {
     // A printed initial denial names "reconsideration" as the next step, so the printed detector
     // can't hear "denied *again*"; the spoken detector can, and wins in that one case.
