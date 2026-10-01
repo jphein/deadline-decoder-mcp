@@ -914,7 +914,9 @@ test("an 'If …' sentence's future consequence is hypothetical too; a past mayb
     assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);
   // "may have been served" / "may have sued me": not a hypothetical, not known either. The line asks.
   const AMONG = ["ca-civil-summons", "debt-validation"];
-  for (const x of ["The debt collector says you may have been served already with a lawsuit.", "the debt collector may have sued me already"]) {
+  for (const x of ["The debt collector says you may have been served already with a lawsuit.", "the debt collector may have sued me already",
+    // A bare "lawsuit" from a collector: papers, or still the letter? Asked, not the letter's answer.
+    "the lawsuit from the collection agency", "a lawsuit by a debt collector", "the debt collector's lawsuit"]) {
     const r = detectLetter(x, t);
     assert.equal(r.letter_type, null, x);
     assert.deepEqual(r.candidates, AMONG, x);
@@ -941,6 +943,10 @@ test("a collector's suit said plainly is a civil summons; an SC-100 is small cla
   // A collector's suit over old rent or after a lease is still the collector's; the guard is for an eviction.
   for (const x of ["my landlord's collection agency is suing me for back rent", "the debt collector is suing me, my lease ended last year"])
     assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  assert.equal(detectLetter("the collection agency filed a lawsuit against me", t).letter_type, "ca-civil-summons");
+  // A threatened or possible lawsuit is still the letter.
+  for (const x of ["the debt collector says they might file a lawsuit", "the collection agency threatened a lawsuit", "a collection agency letter about a possible lawsuit"])
+    assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
   // A landlord's suit may be an eviction: not the civil summons answer.
   for (const x of ["I owe a collection agency and my landlord is suing me for back rent", "my landlord is suing me for back rent"])
     assert.notEqual(detectLetter(x, t).letter_type, "ca-civil-summons", x);

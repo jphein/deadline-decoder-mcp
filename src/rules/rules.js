@@ -279,7 +279,7 @@ export const RULES = [
     unhedge: true,              // nor is it a summons
     detect: [/\bsummons\b|citaci[oó]n judicial/i, /\b(complaint|plaintiff|demandante)\b/i, /\b(30|thirty) (calendar )?days\b/i],
     not: /unlawful detainer|eviction|desalojo/i,
-    spoken: /\b(su(ed|ing) me|being sued|lawsuit|debt collector|collection agency|credit card company)\b.*\b(summons|papers|court)\b|\b(summons|court papers)\b.*\b(debt|money|owe|credit card|collection|lawsuit|sued|suing)\b|^(?!.*\b(landlord|rent|evict\w*|lease)\b).*\bserved (me |you )?with (court |legal )?papers\b.*\b(debt|collect\w*|credit card)\b|\bcollections?\b.*\b(summons|court papers)\b|^(?!.*\b(evict\w*|unlawful detainer|UD|notice to (quit|vacate|pay rent)|3[- ]day notice)\b).*\b(debt collector|collection agency|collections?|credit card company)\b(?:(?!\blandlord)[^]){0,40}(?<!\b(may|might|could) have )\b(sued|is suing|are suing) me\b/i,
+    spoken: /\b(su(ed|ing) me|being sued|lawsuit|debt collector|collection agency|credit card company)\b.*\b(summons|papers|court)\b|\b(summons|court papers)\b.*\b(debt|money|owe|credit card|collection|lawsuit|sued|suing)\b|^(?!.*\b(landlord|rent|evict\w*|lease)\b).*\bserved (me |you )?with (court |legal )?papers\b.*\b(debt|collect\w*|credit card)\b|\bcollections?\b.*\b(summons|court papers)\b|^(?!.*\b(evict\w*|unlawful detainer|UD|notice to (quit|vacate|pay rent)|3[- ]day notice)\b).*\b(debt collector|collection agency|collections?|credit card company)\b(?:(?!\blandlord)[^]){0,40}(?<!\b(may|might|could) have )\b((sued|is suing|are suing) me|filed (a |the )?(lawsuit|suit|case) against me)\b/i,
     answers: /\b(money|debt|owe|lawsuit|sued|suing|collect\w*|credit card|loan|bill)\b/i,
     keyterms: ["summons", "complaint", "lawsuit", "debt collector"],
     headline: "File a written response with the court",
@@ -825,7 +825,7 @@ export const RULES = [
     // (the IRS, FTB, EDD, Social Security, child support, a county or court): the validation rules cover debt collectors.
     // An actual suit (being sued, papers, a summons), not the boilerplate a validation notice carries ("if you are sued",
     // "we will not sue you", "the law limits how long you can be sued", "may be eligible for small claims").
-    not: /\b((sued|sues|suing|took|taking|filed) me\b|filed (a|the) (suit|lawsuit|case)|summons|court papers|(a|the) complaint (was |has been )?filed|complaint against you|served (me |you )?with|(been|got) served|served papers|small claims (papers|court papers|claim|case|hearing)|plaintiff'?s claim|SC-?100)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court (fines?|fees?|costs)|trash|garbage|recycling)\b/i,
+    not: /\b((sued|sues|suing|took|taking|filed) me\b|filed (a|the) (suit|lawsuit|case)|lawsuit|summons|court papers|(a|the) complaint (was |has been )?filed|complaint against you|served (me |you )?with|(been|got) served|served papers|small claims (papers|court papers|claim|case|hearing)|plaintiff'?s claim|SC-?100)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court (fines?|fees?|costs)|trash|garbage|recycling)\b/i,
     detect: [/debt collect\w*|collection agency|collector/i, /validation|dispute|verif\w*/i, /\b(owe|balance|creditor|debt)\b/i],
     spoken: /^(?!.*\b((sued|suing) me|filed (a|the) (suit|lawsuit|case)|summons|court papers)\b).*(debt collect\w*|collection agency|\b(sent|went|gone|turned over) (\w+ ){0,3}to collections\b|\bcollections? (letter|notice|agency|company)\b|validation notice)/is,
     answers: /\b(collect\w*|collector|debt)\b/i,
@@ -1156,7 +1156,8 @@ export const AMBIGUOUS = [
     answers: [["ssa-recon", /^(?!.*\b(ruled|lost|against me|said no|turned (me )?down|(?<!(haven'?t|have not|hasn'?t|has not|didn'?t|not yet) )(had (it|my hearing|the hearing)|went)|heard back|the decision)\b)(\W*(no|nope|not yet)\b|.*\b(not yet|haven'?t|have not|hasn'?t|has not|scheduled|set for|coming( up)?|waiting|next (week|month))\b)/is],
               ["ssa-appeals-council", /^\W*(yes|yeah|yep|i did)\b|\b(already|had it|had (my|the) hearing|went to (it|the hearing|my hearing)|the judge|lost|ruled|it was|heard back|went|the decision)\b/i]] },
   // "The debt collector says you may have been served already with a lawsuit.": a lawsuit, or still just the letter?
-  { spoken: /\b(may|might|could) have (been )?(served|sued)\b/i, candidates: ["ca-civil-summons", "debt-validation"],
+  // So does a bare "lawsuit" from a collector ("the lawsuit from the collection agency"): papers, or still the letter?
+  { spoken: /\b(may|might|could) have (been )?(served|sued)\b|\blawsuit (from|by) (the |a |my )?(debt collector|collection agency|collections?|collector)\b|\b(collector|agency|collections)'s lawsuit\b/i, candidates: ["ca-civil-summons", "debt-validation"],
     question: "Did you get court papers about a lawsuit, like a summons, or a letter from the debt collector?",
     // Its own answers, in order: court papers first ("I got a summons"), then the letter ("just the letter").
     // A court word that's denied ("I didn't get a summons", "no summons") or only in the letter ("the letter mentions a
@@ -1201,10 +1202,10 @@ const PHRASE_WORD = `\\s+(?:(?:with|of|against|to)\\s+${DET}\\w+|(?!(?:and|but|y
 // of this notice we may file a lawsuit against you in the superior court of California" → "…we   court of
 // California"), so no rule may route on "court" plus a collector word alone.
 const hedgeSuit = (hedges) => new RegExp(`(?:\\b(?:${hedges})\\b(?!\\s+have been\\b)[^.;!?,]{0,20}?|\\bno (?:\\w+ )?)\\b(?:${SUIT})\\b(?:${PHRASE_WORD}){0,3}`, "gi");
-const HEDGE_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless");
+const HEDGE_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless|threaten\\w*|possible|potential");
 // In a sentence that opens with "If", its consequence is hypothetical too: "If you are sued you will be served with a
 // summons and complaint.", "If you are sued by us in court the summons will tell you how to respond."
-const IF_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless|will|shall");
+const IF_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless|threaten\\w*|possible|potential|will|shall");
 const SUIT_WILL = new RegExp(`\\b(?:${SUIT})\\b(?=\\s+(?:will|shall)\\b)`, "gi");
 const FIRST_PERSON = /\b(I|me|my|I'm|I've)\b/i;
 export function unhedged(text) {
