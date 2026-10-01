@@ -893,6 +893,9 @@ test("a validation notice's hypotheticals and denials about a suit stay validati
   for (const x of ["If you do not pay, you may be served with a lawsuit.", "We have not filed a complaint against you.",
     "We have not filed a lawsuit against you.", "If you receive a summons, do not ignore it.",
     "If you have been served with court papers, contact an attorney.", "No summons or complaint has been filed against you.",
+    // A lawsuit as a possible consequence is the notice's own wording, not a suit.
+    "A lawsuit may be filed if you do not pay.", "A lawsuit could be filed against you.", "Legal action, including a lawsuit, may follow.",
+    "A lawsuit might result if this is unpaid.", "If unpaid, a lawsuit may be filed.",
     // The phrase is short, but not so short that "lawsuit … court" leaks back in.
     "If you do not pay within 30 days of this notice we may file a lawsuit against you in the superior court"])
     assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);
@@ -914,7 +917,9 @@ test("an 'If …' sentence's future consequence is hypothetical too; a past mayb
     assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);
   // "may have been served" / "may have sued me": not a hypothetical, not known either. The line asks.
   const AMONG = ["ca-civil-summons", "debt-validation"];
-  for (const x of ["The debt collector says you may have been served already with a lawsuit.", "the debt collector may have sued me already"]) {
+  for (const x of ["The debt collector says you may have been served already with a lawsuit.", "the debt collector may have sued me already",
+    // A bare "lawsuit" from a collector: papers, or still the letter? Asked, not the letter's answer.
+    "the lawsuit from the collection agency", "a lawsuit by a debt collector", "the debt collector's lawsuit"]) {
     const r = detectLetter(x, t);
     assert.equal(r.letter_type, null, x);
     assert.deepEqual(r.candidates, AMONG, x);
@@ -926,7 +931,10 @@ test("an 'If …' sentence's future consequence is hypothetical too; a past mayb
     ["I didn't get a summons, just the letter", "debt-validation"], ["no summons", "debt-validation"], ["not a summons", "debt-validation"],
     ["the letter mentions a lawsuit", "debt-validation"], ["I haven't been served, it's just a letter", "debt-validation"],
     ["both", "ca-civil-summons"], ["I got both", "ca-civil-summons"], ["no, it's a summons", "ca-civil-summons"], ["no papers, just a letter", "debt-validation"],
-    ["no", null], ["nope", null], ["yes", null]])
+    ["no", null], ["nope", null], ["yes", null],
+    // "the letter says they sued me" may mean papers came too: asked again; denied or threatened, it's the letter.
+    ["the letter says they sued me", null], ["the letter said there's a lawsuit", null],
+    ["the letter says they haven't sued me", "debt-validation"], ["the letter says they will sue me", "debt-validation"]])
     assert.equal(detectLetter(said, t, AMONG).letter_type, want, said);
 });
 
@@ -938,9 +946,22 @@ test("a collector's suit said plainly is a civil summons; an SC-100 is small cla
   // A collector's suit over old rent or after a lease is still the collector's; the guard is for an eviction.
   for (const x of ["my landlord's collection agency is suing me for back rent", "the debt collector is suing me, my lease ended last year"])
     assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  assert.equal(detectLetter("the collection agency filed a lawsuit against me", t).letter_type, "ca-civil-summons");
+  // A threatened or possible lawsuit is still the letter.
+  for (const x of ["the debt collector says they might file a lawsuit", "the collection agency threatened a lawsuit", "a collection agency letter about a possible lawsuit"])
+    assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
   // A landlord's suit may be an eviction: not the civil summons answer.
   for (const x of ["I owe a collection agency and my landlord is suing me for back rent", "my landlord is suing me for back rent"])
     assert.notEqual(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  // Papers served with a 3-day notice or a notice to quit: an eviction (10 court days) or a money suit (30)? Asked,
+  // even when a rule would have answered.
+  for (const x of ["a debt collector served me with papers about a 3 day notice", "a debt collector served me with papers, a notice to quit",
+    "the collection agency served me with court papers about a notice to pay rent or quit"]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, null, x);
+    assert.deepEqual(r.candidates, ["ca-ud", "ca-civil-summons", "jury-summons"], x);
+    assert.equal(r.speech, "Is it about an eviction, a lawsuit about money, or jury duty?");
+  }
   // Eviction papers, served: the eviction answer (10 court days), not nothing.
   for (const x of ["my landlord served me with papers for an eviction", "they served me with papers to evict me", "I got a UD and the collection agency is suing me"])
     assert.equal(detectLetter(x, t).letter_type, "ca-ud", x);
