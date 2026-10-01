@@ -1157,7 +1157,7 @@ export const AMBIGUOUS = [
               ["ssa-appeals-council", /^\W*(yes|yeah|yep|i did)\b|\b(already|had it|had (my|the) hearing|went to (it|the hearing|my hearing)|the judge|lost|ruled|it was|heard back|went|the decision)\b/i]] },
   // "The debt collector says you may have been served already with a lawsuit.": a lawsuit, or still just the letter?
   // So does a bare "lawsuit" from a collector ("the lawsuit from the collection agency"): papers, or still the letter?
-  { label: "a lawsuit from a debt collector", spoken: /\b(may|might|could) have (been )?(served|sued)\b|\blawsuit (from|by) (the |a |my )?(debt collector|collection agency|collections?|collector)\b|\b(collector|agency|collections)'s lawsuit\b/i, candidates: ["ca-civil-summons", "debt-validation"],
+  { label: "papers or a letter from a debt collector", spoken: /\b(may|might|could) have (been )?(served|sued)\b|\blawsuit (from|by) (the |a |my )?(debt collector|collection agency|collections?|collector)\b|\b(collector|agency|collections)'s lawsuit\b/i, candidates: ["ca-civil-summons", "debt-validation"],
     question: "Did you get court papers about a lawsuit, like a summons, or a letter from the debt collector?",
     // Its own answers, in order: court papers first ("I got a summons"), then the letter ("just the letter").
     // A court word that's denied ("I didn't get a summons", "no summons") or only in the letter ("the letter mentions a
@@ -1239,13 +1239,22 @@ for (const r of RULES) r.carryTitle = CARRY_TITLE[r.id];
 // once, the sooner one is answered first and the other is carried. A ranking, not a deadline: court days are counted
 // as about 1.4 calendar days, the mailing days are added, and a letter that prints its own date (a jury summons, a
 // sale date) or has no deadline to count comes last. For the rules whose count isn't a plain spec:
-const COUNTED_ELSEWHERE = { "ca-3day": 4 /* 3 court days */, "ca-ud": 14 /* 10 court days */, "ssa-recon": 65, "ssa-initial": 65 /* 60 + 5 mailing */,
-  "ca-noa": 90 /* a state hearing */ };
+// - The sheriff's notice ranks before the 3-day notice: it's after the judgment, and the lockout itself is days away.
+// - A Notice of Action ranks by its effective date (benefits continue only if the hearing is asked for before it,
+//   about 10 days), not the 90-day hearing deadline.
+// - A letter without a counted deadline gets a conservative minimum rather than "last", so an imminent one isn't
+//   answered after a slow one: a voucher termination (a hearing request window of about 10 days), a trustee's sale
+//   (at least 20 days' notice), small claims (a hearing about a month out, papers served at least 15 days before),
+//   a jury summons or a traffic ticket (an appearance date, often about two weeks), a debt collector's validation
+//   letter (30 days to dispute), a notice of default (three months to cure).
+const COUNTED_ELSEWHERE = { "ca-sheriff-vacate": 3 /* lockout */, "ca-3day": 4 /* 3 court days */, "ca-ud": 14 /* 10 court days */,
+  "ssa-recon": 65, "ssa-initial": 65 /* 60 + 5 mailing */, "ca-noa": 10 /* the effective date */,
+  "hud-voucher-termination": 10, "ca-foreclosure-sale": 20, "ca-small-claims": 15, "jury-summons": 14, "ca-traffic-ticket": 14,
+  "debt-validation": 30, "ca-foreclosure-nod": 90 };
 export function urgency(id) {
-  const r = RULES.find(x => x.id === id);
-  if (!r || r.anchor === null) return Infinity;
   if (id in COUNTED_ELSEWHERE) return COUNTED_ELSEWHERE[id];
-  return r.count ? r.count.days + (r.count.mail ?? 0) : Infinity;
+  const r = RULES.find(x => x.id === id);
+  return r?.count ? r.count.days + (r.count.mail ?? 0) : Infinity;
 }
 
 export function detect(text) {

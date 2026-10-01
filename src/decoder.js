@@ -239,12 +239,15 @@ function carried(whole, text, today, among, opts) {
   const parts = among.length || !(whole.recognized || whole.candidates.length) ? [] : text.split(ALSO_CUE).filter(p => p.trim().length > 3);
   if (parts.length < 2) return none;
   const found = parts.map(p => detectOne(p, today, [], opts));
-  const ids = [...new Set([whole.letter_type, ...found.map(r => r.letter_type)].filter(Boolean))];
-  const [first, ...rest] = whole.recognized ? ids.sort((a, b) => urgency(a) - urgency(b)) : [null, ...ids];
-  if (first && first !== whole.letter_type) {
-    const { ask_label, ...main } = found.find(r => r.letter_type === first);
-    Object.assign(whole, main);
-  }
+  // The parts decide. A whole-turn pick that no part names is two letters' words run together, and is dropped
+  // ("social security denied me again and my hearing is scheduled, I also got a 3 day notice": the first part is the
+  // hearing question, not a second Social Security letter). A letter the open question already offers isn't carried.
+  let ids = [...new Set(found.map(r => r.letter_type).filter(Boolean))];
+  if (!whole.recognized) ids = ids.filter(id => !whole.candidates.includes(id));
+  const [first, ...rest] = !whole.recognized ? [null, ...ids] : ids.length ? ids.sort((a, b) => urgency(a) - urgency(b)) : [whole.letter_type];
+  // The answer is always the chosen letter's own part, so the dates are its own, not the other letter's.
+  const own = first && found.find(r => r.letter_type === first);
+  if (own) { const { ask_label, ...main } = own; Object.assign(whole, main); }
   const asked = new Set([first, ...rest]);
   const labels = new Set([whole.recognized ? null : found.find(r => r.candidates.join() === whole.candidates.join())?.ask_label]);
   const asks = found.filter(r => !r.recognized && r.ask_label && !r.candidates.some(c => asked.has(c)) && !labels.has(r.ask_label) && labels.add(r.ask_label))
