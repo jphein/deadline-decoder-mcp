@@ -893,6 +893,9 @@ test("a validation notice's hypotheticals and denials about a suit stay validati
   for (const x of ["If you do not pay, you may be served with a lawsuit.", "We have not filed a complaint against you.",
     "We have not filed a lawsuit against you.", "If you receive a summons, do not ignore it.",
     "If you have been served with court papers, contact an attorney.", "No summons or complaint has been filed against you.",
+    // A lawsuit as a possible consequence is the notice's own wording, not a suit.
+    "A lawsuit may be filed if you do not pay.", "A lawsuit could be filed against you.", "Legal action, including a lawsuit, may follow.",
+    "A lawsuit might result if this is unpaid.", "If unpaid, a lawsuit may be filed.",
     // The phrase is short, but not so short that "lawsuit … court" leaks back in.
     "If you do not pay within 30 days of this notice we may file a lawsuit against you in the superior court"])
     assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);

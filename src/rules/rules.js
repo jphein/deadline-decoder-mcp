@@ -825,7 +825,7 @@ export const RULES = [
     // (the IRS, FTB, EDD, Social Security, child support, a county or court): the validation rules cover debt collectors.
     // An actual suit (being sued, papers, a summons), not the boilerplate a validation notice carries ("if you are sued",
     // "we will not sue you", "the law limits how long you can be sued", "may be eligible for small claims").
-    not: /\b((sued|sues|suing|took|taking|filed) me\b|filed (a|the) (suit|lawsuit|case)|lawsuit|summons|court papers|(a|the) complaint (was |has been )?filed|complaint against you|served (me |you )?with|(been|got) served|served papers|small claims (papers|court papers|claim|case|hearing)|plaintiff'?s claim|SC-?100)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court (fines?|fees?|costs)|trash|garbage|recycling)\b/i,
+    not: /\b((sued|sues|suing|took|taking|filed) me\b|filed (a|the) (suit|lawsuit|case)|lawsuit (from|by) (the |a |my )?(debt collector|collection agency|collections?|collector)|(collector|agency|collections)'s lawsuit|summons|court papers|(a|the) complaint (was |has been )?filed|complaint against you|served (me |you )?with|(been|got) served|served papers|small claims (papers|court papers|claim|case|hearing)|plaintiff'?s claim|SC-?100)\b|\b(IRS|internal revenue|FTB|franchise tax|EDD|employment development|social security|SSA|SSI|child support|county|court (fines?|fees?|costs)|trash|garbage|recycling)\b/i,
     detect: [/debt collect\w*|collection agency|collector/i, /validation|dispute|verif\w*/i, /\b(owe|balance|creditor|debt)\b/i],
     spoken: /^(?!.*\b((sued|suing) me|filed (a|the) (suit|lawsuit|case)|summons|court papers)\b).*(debt collect\w*|collection agency|\b(sent|went|gone|turned over) (\w+ ){0,3}to collections\b|\bcollections? (letter|notice|agency|company)\b|validation notice)/is,
     answers: /\b(collect\w*|collector|debt)\b/i,
@@ -1202,10 +1202,10 @@ const PHRASE_WORD = `\\s+(?:(?:with|of|against|to)\\s+${DET}\\w+|(?!(?:and|but|y
 // of this notice we may file a lawsuit against you in the superior court of California" → "…we   court of
 // California"), so no rule may route on "court" plus a collector word alone.
 const hedgeSuit = (hedges) => new RegExp(`(?:\\b(?:${hedges})\\b(?!\\s+have been\\b)[^.;!?,]{0,20}?|\\bno (?:\\w+ )?)\\b(?:${SUIT})\\b(?:${PHRASE_WORD}){0,3}`, "gi");
-const HEDGE_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless|threaten\\w*|possible|potential");
+const HEDGE_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless");
 // In a sentence that opens with "If", its consequence is hypothetical too: "If you are sued you will be served with a
 // summons and complaint.", "If you are sued by us in court the summons will tell you how to respond."
-const IF_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless|threaten\\w*|possible|potential|will|shall");
+const IF_SUIT = hedgeSuit("if|may|might|could|would|not|never|unless|will|shall");
 const SUIT_WILL = new RegExp(`\\b(?:${SUIT})\\b(?=\\s+(?:will|shall)\\b)`, "gi");
 const FIRST_PERSON = /\b(I|me|my|I'm|I've)\b/i;
 export function unhedged(text) {
