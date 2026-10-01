@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { d, iso, dcHolidays, isDcBusinessDay } from "../src/rules/dates.js";
-import { RULES, SPOKEN_ORDER, AMBIGUOUS, KEYTERMS, ANCHORS, ROLL, count } from "../src/rules/rules.js";
+import { RULES, SPOKEN_ORDER, AMBIGUOUS, KEYTERMS, ANCHORS, ROLL, count, urgency } from "../src/rules/rules.js";
 import { computeDeadline, detectLetter, makeReminder, listLetterTypes, UNKNOWN_LETTER, DecoderError } from "../src/decoder.js";
 
 const rule = (id) => RULES.find(r => r.id === id);
@@ -41,7 +41,7 @@ test("key terms: deduplicated, and inside AssemblyAI's limits (100 terms, 50 cha
 test("list_letter_types says, for each type, its family, confidence and whether it needs a date", () => {
   const byId = Object.fromEntries(listLetterTypes().map(t => [t.id, t]));
   assert.deepEqual({ ...byId["jury-summons"], title: undefined, description: undefined },
-    { id: "jury-summons", title: undefined, description: undefined, date_to_ask_for: null, family: "court", confidence: "HEDGE", needs_date: false });
+    { id: "jury-summons", title: undefined, description: undefined, date_to_ask_for: null, family: "court", confidence: "HEDGE", needs_date: false, carry_title: "a jury summons" });
   assert.equal(byId["ca-civil-summons"].needs_date, true);
 });
 
@@ -972,9 +972,9 @@ test("a collector's suit said plainly is a civil summons; an SC-100 is small cla
 test("a second letter is carried only when the caller cues one", () => {
   const t = "2026-10-01";
   for (const [x, first, also] of [["the collection agency is suing me, I also got a 3 day notice", "ca-3day", ["ca-civil-summons"]],
-    ["I got a 3 day notice and also a summons from a debt collector", "ca-civil-summons", ["ca-3day"]],
+    ["I got a 3 day notice and also a summons from a debt collector", "ca-3day", ["ca-civil-summons"]],
     ["social security denied my disability, I also got a notice of default", "ssa-initial", ["ca-foreclosure-nod"]],
-    ["I got a jury summons, plus my landlord gave me a 3 day notice", "jury-summons", ["ca-3day"]]]) {
+    ["I got a jury summons, plus my landlord gave me a 3 day notice", "ca-3day", ["jury-summons"]]]) {
     const r = detectLetter(x, t);
     assert.equal(r.letter_type, first, x);
     assert.deepEqual(r.also_detected, also, x);
@@ -991,6 +991,101 @@ test("a second letter is carried only when the caller cues one", () => {
     assert.deepEqual(detectLetter(x, t).also_detected, [], x);
   // An answer to a question carries nothing.
   assert.deepEqual(detectLetter("eviction, and I also got a jury summons", t, ["ca-ud", "ca-civil-summons", "jury-summons"]).also_detected, []);
+});
+
+test("a cued second letter that's a question of its own is carried under its group's label", () => {
+  const t = "2026-10-01";
+  const SUMMONS = ["ca-ud", "ca-civil-summons", "jury-summons"];
+  for (const [x, first, label, candidates] of [["I got a 3 day notice, I also got a summons", "ca-3day", "a summons or court papers", SUMMONS],
+    ["I got a 3 day notice, plus a letter from the IRS", "ca-3day", "a letter from the IRS", ["irs-cp2000", "irs-deficiency", "irs-levy"]],
+    ["I got a 3 day notice and also court papers", "ca-3day", "a summons or court papers", SUMMONS],
+    ["my rent is going up, I also got a notice to vacate", "ca-rent-increase", "a notice to move out", ["ca-30day-notice", "ca-60day-notice"]]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x);
+    assert.deepEqual(r.also_detected, [], x);
+    assert.deepEqual(r.also_asks.map(a => [a.label, a.candidates]), [[label, candidates]], x);
+    assert.equal(r.also_detected_spoken, `You also mentioned ${label}; tell me about that next.`);
+  }
+  // The served-already question's label doesn't assert the lawsuit it exists to ask about.
+  const suit = detectLetter("I got a 3 day notice, I also got a lawsuit from the collection agency", t);
+  assert.equal(suit.also_detected_spoken, "You also mentioned papers or a letter from a debt collector; tell me about that next.");
+  // A question that could be the letter already answered isn't carried: "a summons" here may be the same suit.
+  assert.deepEqual(detectLetter("the collection agency is suing me, I also got a summons", t).also_asks, []);
+});
+
+test("two letters in one turn: the sooner deadline is answered first, from its own words, and the other carried", () => {
+  const t = "2026-10-01";
+  // The lockout first, then the 3-day notice, the UD, the summons; every letter has a rank (none "last" by default).
+  assert.ok(urgency("ca-sheriff-vacate") < urgency("ca-3day") && urgency("ca-3day") < urgency("ca-ud") && urgency("ca-ud") < urgency("ca-civil-summons"));
+  for (const r of RULES) assert.ok(Number.isFinite(urgency(r.id)), r.id);
+  for (const [x, first, also] of [["I got a notice of trustee's sale, and also a 3 day notice", "ca-3day", ["ca-foreclosure-sale"]],
+    ["the collection agency is suing me, I also got a 3 day notice", "ca-3day", ["ca-civil-summons"]]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.deepEqual(r.also_detected, also, x);
+  }
+  // The answer's date is always its own letter's, never the other one's (whether or not the order changed).
+  for (const [x, first, date, also] of [
+    ["I got a notice of action from the county dated September 20, and also an IRS CP2000 dated September 1", "ca-noa", "2026-09-20", ["irs-cp2000"]],
+    ["a parking ticket on September 20 and also a DMV suspension after my DUI on September 25", "ca-dmv-aps", "2026-09-25", ["ca-parking-ticket"]],
+    ["a summons from a debt collector served September 25 and I also got an unlawful detainer served September 29", "ca-ud", "2026-09-29", ["ca-civil-summons"]],
+    ["the debt collector sued me, I got the papers September 20th, I also got a 3 day notice", "ca-3day", null, ["ca-civil-summons"]],
+    ["I got a rent increase notice dated September 1st, and I also got a 3 day notice", "ca-3day", null, ["ca-rent-increase"]],
+    ["I got a 30 day notice dated September 1st and I also got a 3 day notice", "ca-3day", null, ["ca-30day-notice"]],
+    ["I got a 3 day notice, I also got a 30 day notice dated September 1st", "ca-3day", null, ["ca-30day-notice"]],
+    ["I got a summons served September 20th, plus a 3 day notice", "ca-3day", null, []]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.equal(r.suggested_notice_date, date, x); assert.deepEqual(r.also_detected, also, x);
+  }
+  // One letter and a date said in its own clause ("…, I got it yesterday"): the whole turn is about that letter.
+  for (const [x, first, date] of [["I got a 3 day notice, I got it yesterday", "ca-3day", "2026-09-30"],
+    ["my landlord gave me a 3 day notice and I got it on September 28th", "ca-3day", "2026-09-28"],
+    ["I got a summons from a debt collector, I got it September 20th", "ca-civil-summons", "2026-09-20"],
+    ["social security denied my disability, I got the letter September 15th", "ssa-initial", "2026-09-15"],
+    ["I got a 30 day notice, I got it September 1st", "ca-30day-notice", "2026-09-01"],
+    ["the debt collector sued me and I got served yesterday", "ca-civil-summons", "2026-09-30"],
+    ["I got a notice of action and I got it September 20th", "ca-noa", "2026-09-20"]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.equal(r.suggested_notice_date, date, x); assert.deepEqual(r.also_detected, [], x);
+  }
+  // A later stage of the same matter is answered first: it replaces the earlier one's deadline.
+  for (const [x, first, also] of [["I got a 3 day notice and I also got the summons and complaint for the eviction", "ca-ud", ["ca-3day"]],
+    ["I got an IRS CP2000 and I also got an IRS notice of deficiency", "irs-deficiency", ["irs-cp2000"]],
+    ["I got an unlawful detainer, I also got a sheriff's notice to vacate", "ca-sheriff-vacate", ["ca-ud"]],
+    // On a tie, the lawsuit papers first.
+    ["a debt collector sent me a validation notice, I also got a summons from a debt collector", "ca-civil-summons", ["debt-validation"]],
+    ["I got a jury summons, I also got an unlawful detainer", "ca-ud", ["jury-summons"]]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.deepEqual(r.also_detected, also, x);
+  }
+  // A letter without a counted deadline isn't answered after a slow one.
+  for (const [x, first, also] of [["I got a CP2000 dated September 1, and also a notice of trustee's sale", "ca-foreclosure-sale", ["irs-cp2000"]],
+    ["I got a 30 day notice dated September 1st and also the housing authority is terminating my voucher", "hud-voucher-termination", ["ca-30day-notice"]]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.deepEqual(r.also_detected, also, x);
+  }
+  // One Social Security letter named once: the whole turn's pick isn't carried when its own part is the hearing question.
+  const ssa = detectLetter("social security denied me again and my hearing is scheduled, I also got a 3 day notice", t);
+  assert.equal(ssa.letter_type, "ca-3day"); assert.deepEqual(ssa.also_detected, []);
+  assert.deepEqual(ssa.also_asks.map(a => a.label), ["a Social Security hearing letter"]);
+  // A letter the open question already offers isn't carried beside it.
+  const open = detectLetter("the debt collector sent a letter, I also may have been served already", t);
+  assert.deepEqual(open.candidates, ["ca-civil-summons", "debt-validation"]); assert.deepEqual(open.also_detected, []);
+  // The date said with the 3-day notice is its date, not the summons'.
+  const dated = detectLetter("I got a 3 day notice dated September 28 and also a summons from a debt collector", t);
+  assert.equal(dated.letter_type, "ca-3day"); assert.equal(dated.suggested_notice_date, "2026-09-28"); assert.deepEqual(dated.also_detected, ["ca-civil-summons"]);
+  // Not resolved (documented): "one" for the first part's letter, and a bare FTB letter isn't a rule anyway.
+  assert.deepEqual(detectLetter("the IRS sent me a letter and I also got one from the FTB", t).also_detected, []);
+});
+
+test("every letter has a short spoken name: no 'California:', no parentheses, not 'my …'", () => {
+  for (const { id, carry_title } of listLetterTypes()) {
+    assert.ok(carry_title, id);
+    assert.doesNotMatch(carry_title, /California:|[()]|\bmy\b/i, id);
+  }
+  const byId = Object.fromEntries(listLetterTypes().map(x => [x.id, x.carry_title]));
+  assert.equal(byId["ca-civil-summons"], "court papers for a lawsuit");
+  assert.equal(byId["ssa-recon"], "a second Social Security denial");
+  assert.equal(byId["ca-3day"], "a 3-day notice");
 });
 
 test("a real suit after a notice's hypothetical stays a suit: the guard blanks only the hedged phrase", () => {
