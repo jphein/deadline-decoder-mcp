@@ -64,6 +64,12 @@ test("detect_letter carries a second letter the caller cued", () => withClient(a
   assert.match(r.structuredContent.also_detected_spoken, /^You also mentioned court papers for a lawsuit/);
 }));
 
+test("detect_letter carries a cued second letter that's a question of its own", () => withClient(async (client) => {
+  const r = await client.callTool({ name: "detect_letter", arguments: { text: "I got a 3 day notice, I also got a summons" } });
+  assert.deepEqual(r.structuredContent.also_asks, [{ label: "a summons or court papers", question: "Is it about an eviction, a lawsuit about money, or jury duty?",
+    candidates: ["ca-ud", "ca-civil-summons", "jury-summons"] }]);
+}));
+
 test("impossible date comes back as a tool error, not a server error", () => withClient(async (client) => {
   const r = await client.callTool({ name: "compute_deadline", arguments: { letter_type: "ca-noa", notice_date: "2026-02-30" } });
   assert.equal(r.isError, true);
