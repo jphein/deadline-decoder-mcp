@@ -213,7 +213,21 @@ export function detectLetter(text, today = todayIso(), among = [], { letterType 
     dates_found: all.map(x => x.iso),
     suggested_notice_date: dates[0] ?? null,
     speech: rule ? `That sounds like: ${rule.title}.${ask ? ` ${ask}` : ""}` : group ? group.question : UNKNOWN_LETTER,
+    ...alsoDetected(text, today, rule && !among.length ? rule.id : null),
   };
+}
+
+// A second letter, only when the caller cues one ("…, I also got a 3 day notice", "…, plus my landlord gave me…"): the
+// turn is split at the cue and each part detected on its own; a part that names a different letter than the turn's
+// answer is carried, for the caller to hear about next. Without a cue nothing is carried: a turn that matches two
+// rules is usually one letter said two ways (measured: 35 of 186 recognized harness sentences match a second rule;
+// with the cue, none do).
+const ALSO_CUE = /(?:[,.;]\s*|\s+and\s+)(?=(?:I\s+)?(?:also|plus)\b|(?:I\s+)?(?:got|have) another\b|I\s+(?:also\s+)?got\b)|\s+(?=also got\b)/i;
+function alsoDetected(text, today, chosen) {
+  const parts = chosen ? text.split(ALSO_CUE).filter(p => p.trim().length > 3) : [];
+  const ids = parts.length < 2 ? [] : [...new Set(parts.map(p => detectLetter(p, today).letter_type).filter(id => id && id !== chosen))];
+  const titles = ids.map(id => findRule(id).title.replace(/^California: /, ""));
+  return { also_detected: ids, also_detected_spoken: titles.length ? `You also mentioned ${titles.join(" and ")}; tell me about that next.` : null };
 }
 
 function icsDate(dt) { return iso(dt).replaceAll("-", ""); }
