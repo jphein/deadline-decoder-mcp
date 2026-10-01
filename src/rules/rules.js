@@ -1168,10 +1168,17 @@ export const KEYTERMS = [...new Set(RULES.flatMap(r => r.keyterms ?? []))];
 
 // A notice's own hypotheticals and denials aren't a suit: "If you receive a summons, do not ignore it.", "If you do not
 // pay, you may be served with a lawsuit.", "We have not filed a lawsuit against you." For the rules that ask "is this a
-// suit?", a clause is blanked from a hedge word shortly before a suit word to the clause's end ("no" only right before
-// the suit word: "no lawsuit has been filed", not "no idea what this summons means"). Never in a sentence in the
-// caller's own words ("I don't know if the summons is real"): notices say "you" and "we", callers say "I".
-const HEDGE_SUIT = /(\b(if|may|might|could|would|not|never|unless|before)\b[^.;!?,]{0,20}?|\bno (\w+ )?)\b(summons|complaint|lawsuit|court papers|suit|sued?|suing|served)\b[^.;!?,]*/gi;
+// suit?", the hedged phrase is blanked: from a hedge word within 20 characters before a suit word ("no" only right
+// before it: "no lawsuit has been filed", not "no idea what this summons means"), through at most three more words
+// of that phrase ("with a lawsuit", "against you"). The phrase stops at and/but/was/were/has/have/yesterday and at a
+// new suit noun that no preposition ties to it, so a real suit after the hypothetical stays: "…you may be served with
+// a lawsuit you got a summons yesterday…", "…WITH A LAWSUIT A SUMMONS AND COMPLAINT WAS FILED…". Never in a sentence
+// in the caller's own words ("I don't know if the summons is real"): notices say "you" and "we", callers say "I".
+// ("before" isn't a hedge: "Before you were served with this summons, …" is a real one.)
+const SUIT = "summons|complaint|lawsuit|court papers|suit|sued?|suing|served";
+const DET = "(?:(?:a|an|the|this|any)\\s+)?";
+const PHRASE_WORD = `\\s+(?:(?:with|of|against|to)\\s+${DET}\\w+|(?!(?:and|but|yesterday|was|were|has|have)\\b)${DET}(?!(?:${SUIT})\\b)\\w+)`;
+const HEDGE_SUIT = new RegExp(`(?:\\b(?:if|may|might|could|would|not|never|unless)\\b[^.;!?,]{0,20}?|\\bno (?:\\w+ )?)\\b(?:${SUIT})\\b(?:${PHRASE_WORD}){0,3}`, "gi");
 const FIRST_PERSON = /\b(I|me|my|I'm|I've)\b/i;
 export function unhedged(text) {
   return text.replace(/[^.;!?]+/g, (sentence) => FIRST_PERSON.test(sentence) ? sentence : sentence.replace(HEDGE_SUIT, " "));

@@ -892,15 +892,32 @@ test("a validation notice's hypotheticals and denials about a suit stay validati
   const V = "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. ";
   for (const x of ["If you do not pay, you may be served with a lawsuit.", "We have not filed a complaint against you.",
     "We have not filed a lawsuit against you.", "If you receive a summons, do not ignore it.",
-    "If you have been served with court papers, contact an attorney.", "No summons or complaint has been filed against you."])
+    "If you have been served with court papers, contact an attorney.", "No summons or complaint has been filed against you.",
+    // The phrase is short, but not so short that "lawsuit … court" leaks back in.
+    "If you do not pay within 30 days of this notice we may file a lawsuit against you in the superior court"])
     assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);
   // Said, not printed (under 2 on the printed detector): the spoken rules, civil summons first, read the guarded text too.
   const dv = RULES.find(r => r.id === "debt-validation");
   for (const x of ["a collection agency letter says if you receive a summons do not ignore it", "the collection agency says if you get court papers call a lawyer",
-    "a collection agency letter, it says we have not filed a lawsuit against you", "collection agency letter: if you have been served with a summons, contact an attorney"]) {
+    "a collection agency letter, it says we have not filed a lawsuit against you", "collection agency letter: if you have been served with a summons, contact an attorney",
+    // The hedged phrase takes its object, so "lawsuit … court" doesn't leak back in.
+    "a collections letter says if you do not pay you may be served with a lawsuit in the superior court"]) {
     assert.ok(dv.detect.filter(r => r.test(x)).length < 2, x);
     assert.equal(detectLetter(x, t).letter_type, "debt-validation", x);
   }
+});
+
+test("a real suit after a notice's hypothetical stays a suit: the guard blanks only the hedged phrase", () => {
+  const t = "2026-10-01";
+  for (const x of ["if you do not pay you may be served with a lawsuit you got a summons yesterday from the debt collector",
+    "If you do not pay you may be served with a lawsuit I got a summons yesterday from a debt collector",
+    "the debt collector letter says if you do not pay you may be served with a lawsuit and a summons was delivered to the house yesterday",
+    "ABC COLLECTIONS DEBT COLLECTOR IF YOU DO NOT PAY YOU MAY BE SERVED WITH A LAWSUIT A SUMMONS AND COMPLAINT WAS FILED AGAINST YOU ON SEPTEMBER 1",
+    // The phrase stops at "and": the collector named after it isn't part of the hypothetical.
+    "ABC Collections letter: if you do not pay you may be served with a lawsuit and the debt collector sent a summons yesterday",
+    // "before" is about time, not a hedge.
+    "Before you were served with this summons, ABC Collections, a debt collector, sent a validation notice."])
+    assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
 });
 
 test("a real suit still is one: the hedge guard skips the caller's own words and stops at the clause", () => {
