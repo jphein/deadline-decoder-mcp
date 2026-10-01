@@ -907,6 +907,35 @@ test("a validation notice's hypotheticals and denials about a suit stay validati
   }
 });
 
+test("an 'If …' sentence's future consequence is hypothetical too; a past maybe gets asked", () => {
+  const t = "2026-10-01";
+  const V = "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. ";
+  for (const x of ["If you are sued you will be served with a summons and complaint.", "If you are sued by us in court the summons will tell you how to respond."])
+    assert.equal(detectLetter(V + x, t).letter_type, "debt-validation", x);
+  // "may have been served" / "may have sued me": not a hypothetical, not known either. The line asks.
+  const AMONG = ["ca-civil-summons", "debt-validation"];
+  for (const x of ["The debt collector says you may have been served already with a lawsuit.", "the debt collector may have sued me already"]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, null, x);
+    assert.deepEqual(r.candidates, AMONG, x);
+    assert.match(r.speech, /court papers about a lawsuit, like a summons, or a letter from the debt collector\?$/);
+  }
+  for (const [said, want] of [["I got a summons", "ca-civil-summons"], ["court papers", "ca-civil-summons"], ["a letter from the debt collector", "debt-validation"],
+    ["no, no papers, just the letter", "debt-validation"], ["I don't know", null]])
+    assert.equal(detectLetter(said, t, AMONG).letter_type, want, said);
+});
+
+test("a collector's suit said plainly is a civil summons; an SC-100 is small claims", () => {
+  const t = "2026-10-01";
+  for (const x of ["ABC Collections letter: if you do not pay you may be sued. I was served on Monday with a summons from them",
+    "the collection agency sued me, I've never been sued before", "the collection agency is suing me", "the collection agency sued me for my old credit card"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  // A landlord's suit may be an eviction: not the civil summons answer.
+  assert.notEqual(detectLetter("I owe a collection agency and my landlord is suing me for back rent", t).letter_type, "ca-civil-summons");
+  for (const x of ["I got an SC-100 from a debt collector", "SC100 small claims from a debt collector"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-small-claims", x);
+});
+
 test("a real suit after a notice's hypothetical stays a suit: the guard blanks only the hedged phrase", () => {
   const t = "2026-10-01";
   for (const x of ["if you do not pay you may be served with a lawsuit you got a summons yesterday from the debt collector",
