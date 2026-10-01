@@ -921,7 +921,12 @@ test("an 'If …' sentence's future consequence is hypothetical too; a past mayb
     assert.match(r.speech, /court papers about a lawsuit, like a summons, or a letter from the debt collector\?$/);
   }
   for (const [said, want] of [["I got a summons", "ca-civil-summons"], ["court papers", "ca-civil-summons"], ["a letter from the debt collector", "debt-validation"],
-    ["no, no papers, just the letter", "debt-validation"], ["I don't know", null]])
+    ["no, no papers, just the letter", "debt-validation"], ["I don't know", null],
+    // A denied court word, or one only in the letter, is the letter; "both" is the summons; a bare "no" is asked again.
+    ["I didn't get a summons, just the letter", "debt-validation"], ["no summons", "debt-validation"], ["not a summons", "debt-validation"],
+    ["the letter mentions a lawsuit", "debt-validation"], ["I haven't been served, it's just a letter", "debt-validation"],
+    ["both", "ca-civil-summons"], ["I got both", "ca-civil-summons"], ["no, it's a summons", "ca-civil-summons"], ["no papers, just a letter", "debt-validation"],
+    ["no", null], ["nope", null], ["yes", null]])
     assert.equal(detectLetter(said, t, AMONG).letter_type, want, said);
 });
 
@@ -930,8 +935,15 @@ test("a collector's suit said plainly is a civil summons; an SC-100 is small cla
   for (const x of ["ABC Collections letter: if you do not pay you may be sued. I was served on Monday with a summons from them",
     "the collection agency sued me, I've never been sued before", "the collection agency is suing me", "the collection agency sued me for my old credit card"])
     assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  // A collector's suit over old rent or after a lease is still the collector's; the guard is for an eviction.
+  for (const x of ["my landlord's collection agency is suing me for back rent", "the debt collector is suing me, my lease ended last year"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-civil-summons", x);
   // A landlord's suit may be an eviction: not the civil summons answer.
-  assert.notEqual(detectLetter("I owe a collection agency and my landlord is suing me for back rent", t).letter_type, "ca-civil-summons");
+  for (const x of ["I owe a collection agency and my landlord is suing me for back rent", "my landlord is suing me for back rent"])
+    assert.notEqual(detectLetter(x, t).letter_type, "ca-civil-summons", x);
+  // Eviction papers, served: the eviction answer (10 court days), not nothing.
+  for (const x of ["my landlord served me with papers for an eviction", "they served me with papers to evict me", "I got a UD and the collection agency is suing me"])
+    assert.equal(detectLetter(x, t).letter_type, "ca-ud", x);
   for (const x of ["I got an SC-100 from a debt collector", "SC100 small claims from a debt collector"])
     assert.equal(detectLetter(x, t).letter_type, "ca-small-claims", x);
 });
