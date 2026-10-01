@@ -969,6 +969,30 @@ test("a collector's suit said plainly is a civil summons; an SC-100 is small cla
     assert.equal(detectLetter(x, t).letter_type, "ca-small-claims", x);
 });
 
+test("a second letter is carried only when the caller cues one", () => {
+  const t = "2026-10-01";
+  for (const [x, first, also] of [["the collection agency is suing me, I also got a 3 day notice", "ca-3day", ["ca-civil-summons"]],
+    ["I got a 3 day notice and also a summons from a debt collector", "ca-civil-summons", ["ca-3day"]],
+    ["social security denied my disability, I also got a notice of default", "ssa-initial", ["ca-foreclosure-nod"]],
+    ["I got a jury summons, plus my landlord gave me a 3 day notice", "jury-summons", ["ca-3day"]]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x);
+    assert.deepEqual(r.also_detected, also, x);
+    assert.match(r.also_detected_spoken, /^You also mentioned .+; tell me about that next\.$/, x);
+  }
+  // No cue, nothing carried (documented): two letters said without "also"/"plus" are answered one at a time.
+  const nocue = detectLetter("the collection agency is suing me and my landlord gave me a 3 day notice", t);
+  assert.deepEqual(nocue.also_detected, []);
+  assert.equal(nocue.also_detected_spoken, null);
+  // One letter said two ways matches two rules; with no cue it carries nothing (each of these did, uncued).
+  for (const x of ["Social Security denied my disability again", "EDD stopped my disability payments", "the utility says it will shut off my water",
+    "a collection agency is suing me in small claims", "social security denied my disability again, and my landlord wants to evict me",
+    "This is a communication from a debt collector. Validation notice. You can dispute the debt by October 30, 2026. If you do not pay, you may be served with a lawsuit."])
+    assert.deepEqual(detectLetter(x, t).also_detected, [], x);
+  // An answer to a question carries nothing.
+  assert.deepEqual(detectLetter("eviction, and I also got a jury summons", t, ["ca-ud", "ca-civil-summons", "jury-summons"]).also_detected, []);
+});
+
 test("a real suit after a notice's hypothetical stays a suit: the guard blanks only the hedged phrase", () => {
   const t = "2026-10-01";
   for (const x of ["if you do not pay you may be served with a lawsuit you got a summons yesterday from the debt collector",
