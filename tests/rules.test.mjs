@@ -1036,6 +1036,27 @@ test("two letters in one turn: the sooner deadline is answered first, from its o
     const r = detectLetter(x, t);
     assert.equal(r.letter_type, first, x); assert.equal(r.suggested_notice_date, date, x); assert.deepEqual(r.also_detected, also, x);
   }
+  // One letter and a date said in its own clause ("…, I got it yesterday"): the whole turn is about that letter.
+  for (const [x, first, date] of [["I got a 3 day notice, I got it yesterday", "ca-3day", "2026-09-30"],
+    ["my landlord gave me a 3 day notice and I got it on September 28th", "ca-3day", "2026-09-28"],
+    ["I got a summons from a debt collector, I got it September 20th", "ca-civil-summons", "2026-09-20"],
+    ["social security denied my disability, I got the letter September 15th", "ssa-initial", "2026-09-15"],
+    ["I got a 30 day notice, I got it September 1st", "ca-30day-notice", "2026-09-01"],
+    ["the debt collector sued me and I got served yesterday", "ca-civil-summons", "2026-09-30"],
+    ["I got a notice of action and I got it September 20th", "ca-noa", "2026-09-20"]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.equal(r.suggested_notice_date, date, x); assert.deepEqual(r.also_detected, [], x);
+  }
+  // A later stage of the same matter is answered first: it replaces the earlier one's deadline.
+  for (const [x, first, also] of [["I got a 3 day notice and I also got the summons and complaint for the eviction", "ca-ud", ["ca-3day"]],
+    ["I got an IRS CP2000 and I also got an IRS notice of deficiency", "irs-deficiency", ["irs-cp2000"]],
+    ["I got an unlawful detainer, I also got a sheriff's notice to vacate", "ca-sheriff-vacate", ["ca-ud"]],
+    // On a tie, the lawsuit papers first.
+    ["a debt collector sent me a validation notice, I also got a summons from a debt collector", "ca-civil-summons", ["debt-validation"]],
+    ["I got a jury summons, I also got an unlawful detainer", "ca-ud", ["jury-summons"]]]) {
+    const r = detectLetter(x, t);
+    assert.equal(r.letter_type, first, x); assert.deepEqual(r.also_detected, also, x);
+  }
   // A letter without a counted deadline isn't answered after a slow one.
   for (const [x, first, also] of [["I got a CP2000 dated September 1, and also a notice of trustee's sale", "ca-foreclosure-sale", ["irs-cp2000"]],
     ["I got a 30 day notice dated September 1st and also the housing authority is terminating my voucher", "hud-voucher-termination", ["ca-30day-notice"]]]) {

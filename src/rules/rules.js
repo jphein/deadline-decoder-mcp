@@ -1251,6 +1251,16 @@ const COUNTED_ELSEWHERE = { "ca-sheriff-vacate": 3 /* lockout */, "ca-3day": 4 /
   "ssa-recon": 65, "ssa-initial": 65 /* 60 + 5 mailing */, "ca-noa": 10 /* the effective date */,
   "hud-voucher-termination": 10, "ca-foreclosure-sale": 20, "ca-small-claims": 15, "jury-summons": 14, "ca-traffic-ticket": 14,
   "debt-validation": 30, "ca-foreclosure-nod": 90 };
+// The order letters named together are answered in: a later stage of the same matter first, because it replaces the
+// earlier one's deadline (an eviction lawsuit served after a 3-day notice: the 10-court-day response is what counts,
+// CCP § 1167), then the sooner deadline, then on a tie the lawsuit papers, then the order the caller named them in.
+const SUPERSEDES = { "ca-ud": ["ca-3day", "ca-30day-notice", "ca-60day-notice"], "ca-sheriff-vacate": ["ca-ud"],
+  "irs-deficiency": ["irs-cp2000"], "ca-foreclosure-sale": ["ca-foreclosure-nod"] };
+const LAWSUIT = new Set(["ca-ud", "ca-civil-summons", "ca-small-claims"]);
+export function answerOrder(ids) {
+  const replaced = (id) => ids.some(o => SUPERSEDES[o]?.includes(id));
+  return [...ids].sort((a, b) => (replaced(a) - replaced(b)) || (urgency(a) - urgency(b)) || (LAWSUIT.has(b) - LAWSUIT.has(a)));
+}
 export function urgency(id) {
   if (id in COUNTED_ELSEWHERE) return COUNTED_ELSEWHERE[id];
   const r = RULES.find(x => x.id === id);

@@ -2,7 +2,7 @@
 // decoder.js — the domain layer the MCP tools call. Pure functions over the cited rules in src/rules/
 // (which began as Deadline Decoder's and have grown since). No I/O here, so every answer is testable.
 import { d, iso, addDays, daysBetween, fmt, findDates } from "./rules/dates.js";
-import { RULES, SPOKEN_ORDER, AMBIGUOUS, detect, textFor, urgency } from "./rules/rules.js";
+import { RULES, SPOKEN_ORDER, AMBIGUOUS, detect, textFor, answerOrder } from "./rules/rules.js";
 
 export { KEYTERMS } from "./rules/rules.js";
 
@@ -227,7 +227,7 @@ function detectOne(text, today, among, { letterType } = {}) {
 // turn is split at the cue and each part detected on its own. Without a cue nothing is carried: a turn that matches two
 // rules is usually one letter said two ways (measured: 35 of 186 recognized harness sentences match a second rule;
 // with the cue, none do).
-// - The sooner deadline is answered first (urgency, in the rules), from its own part, so a date said with one letter
+// - A later stage of the same matter, else the sooner deadline, is answered first (answerOrder, in the rules), from its own part, so a date said with one letter
 //   isn't offered as the other's; the rest are carried in also_detected.
 // - A part that's a question of its own ("…, I also got a summons": eviction, lawsuit or jury?) is carried in also_asks,
 //   under its group's label, unless it could be a letter already answered or carried.
@@ -244,14 +244,15 @@ function carried(whole, text, today, among, opts) {
   // hearing question, not a second Social Security letter). A letter the open question already offers isn't carried.
   let ids = [...new Set(found.map(r => r.letter_type).filter(Boolean))];
   if (!whole.recognized) ids = ids.filter(id => !whole.candidates.includes(id));
-  const [first, ...rest] = !whole.recognized ? [null, ...ids] : ids.length ? ids.sort((a, b) => urgency(a) - urgency(b)) : [whole.letter_type];
-  // The answer is always the chosen letter's own part, so the dates are its own, not the other letter's.
-  const own = first && found.find(r => r.letter_type === first);
-  if (own) { const { ask_label, ...main } = own; Object.assign(whole, main); }
+  const [first, ...rest] = !whole.recognized ? [null, ...ids] : ids.length ? answerOrder(ids) : [whole.letter_type];
   const asked = new Set([first, ...rest]);
   const labels = new Set([whole.recognized ? null : found.find(r => r.candidates.join() === whole.candidates.join())?.ask_label]);
   const asks = found.filter(r => !r.recognized && r.ask_label && !r.candidates.some(c => asked.has(c)) && !labels.has(r.ask_label) && labels.add(r.ask_label))
     .map(r => ({ label: r.ask_label, question: r.speech, candidates: r.candidates }));
+  // With two letters (or a letter and a question), the answer is the chosen letter's own part, so its dates are its own,
+  // not the other letter's. With one letter, the whole turn is about it ("I got a 3 day notice, I got it yesterday").
+  const own = first && (rest.length || asks.length) && found.find(r => r.letter_type === first);
+  if (own) { const { ask_label, ...main } = own; Object.assign(whole, main); }
   const names = [...rest.map(id => findRule(id).carryTitle), ...asks.map(a => a.label)];
   return { also_detected: rest, also_asks: asks, also_detected_spoken: names.length ? `You also mentioned ${names.join(" and ")}; tell me about that next.` : null };
 }
